@@ -115,6 +115,9 @@ Day-to-day you only need the `toolbox` wrapper and a handful of `make` targets.
 | `make stop` | Stop and remove the container |
 | `make test [IMAGE=...]` | Smoke test an image |
 
+> [!TIP]
+> All keys and commands on one page: [**Cheatsheet**](./build/rootfs/opt/toolbox/doc/cheatsheet.md) - also `cheat [topic]` in the shell and `<leader>?` in Neovim.
+
 **Updating** = `make start` (pulls the newest image for your tag and recreates the container).
 Image tags: `latest` (last release), `X.Y.Z` / `X.Y` / `X`, `weekly` (last release + Debian security updates), `edge` (develop).
 
@@ -235,6 +238,7 @@ The "Miscellaneous" section gathers various resources and content that may not b
 
 ### Table Of Contents:
 - $\large\color{Goldenrod}{\textbf{Helpful Resources}}$
+   - [Cheatsheet](./build/rootfs/opt/toolbox/doc/cheatsheet.md)
    - [TODO List (Roadmap)](./docs/roadmap.md#roadmap---todo-list)
    - [Changelog](./CHANGELOG.md)
 

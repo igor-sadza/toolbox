@@ -900,6 +900,7 @@ RUN \
             /usr/bin/toolbox.sh \
             "${TOOLBOX_BIN}/vi" \
             "${TOOLBOX_BIN}/tmux" \
+            "${TOOLBOX_BIN}/cheat" \
     && \
     echo "**** Load /etc/bash.bashrc.d fragments ****" \
         && printf '%s\n' \

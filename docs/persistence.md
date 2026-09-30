@@ -61,4 +61,4 @@
 | Prompt | `~/.liquidpromptrc` (overrides `/opt/toolbox/config/liquidpromptrc`) |
 | Shell | `~/.bashrc` (sourced after `/etc/bash.bashrc.d/*`) |
 
-The shared toolbox Neovim config lives in `/opt/toolbox/config/nvim` (image). Change it in this repo (`build/rootfs/opt/toolbox/config/nvim/init.lua`) so the change is pinned, tested and shipped to every machine.
+The shared toolbox Neovim config lives in `/opt/toolbox/config/nvim` (image). Change it in this repo (`build/rootfs/opt/toolbox/config/nvim/`, one file per area in `lua/toolbox/`) so the change is pinned, tested and shipped to every machine.

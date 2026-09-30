@@ -46,3 +46,41 @@ map("v", ">", ">gv", { desc = "Indent right" })
 
 -- Disable macro recording (q is used to close plugin windows)
 map("n", "q", "<Nop>", { silent = true })
+
+-- ============================================================
+-- Cheatsheet (same file as the shell 'cheat' command)
+-- ============================================================
+
+map("n", "<leader>?", function()
+  local path = (vim.env.TOOLBOX_ROOT or "/opt/toolbox") .. "/doc/cheatsheet.md"
+
+  if vim.fn.filereadable(path) == 0 then
+    vim.notify("Cheatsheet not found: " .. path, vim.log.levels.WARN)
+    return
+  end
+
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, vim.fn.readfile(path))
+  vim.bo[buf].filetype = "markdown"
+  vim.bo[buf].modifiable = false
+  vim.bo[buf].bufhidden = "wipe"
+
+  local width = math.min(110, math.floor(vim.o.columns * 0.9))
+  local height = math.floor(vim.o.lines * 0.85)
+
+  local win = vim.api.nvim_open_win(buf, true, {
+    relative = "editor",
+    width = width,
+    height = height,
+    row = math.floor((vim.o.lines - height) / 2),
+    col = math.floor((vim.o.columns - width) / 2),
+    title = " Toolbox cheatsheet (q to close, / to search) ",
+    title_pos = "center",
+  })
+
+  vim.wo[win].wrap = false
+  vim.wo[win].conceallevel = 2
+
+  vim.keymap.set("n", "q", "<cmd>close<cr>", { buffer = buf, nowait = true, silent = true })
+  vim.keymap.set("n", "<Esc>", "<cmd>close<cr>", { buffer = buf, nowait = true, silent = true })
+end, { desc = "Cheatsheet" })
