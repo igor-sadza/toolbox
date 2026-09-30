@@ -30,10 +30,14 @@ ENV ?= dev
 ENV_FILE := .env.$(ENV)
 
 # ------------------------
-# Fall back to .env
+# Fall back to .env, then .env.example
 # ------------------------
 ifeq ($(wildcard $(ENV_FILE)),)
 ENV_FILE := .env
+endif
+
+ifeq ($(wildcard $(ENV_FILE)),)
+ENV_FILE := .env.example
 endif
 
 # ------------------------

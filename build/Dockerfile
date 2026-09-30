@@ -30,40 +30,39 @@ ARG \
     DEBIAN_FRONTEND=noninteractive
 
 # ---------------------
-# Base: Configure Proxy (corporate needs) 
-
-ARG \
-    HTTP_PROXY="" \
-    HTTPS_PROXY=""
+# Base: Configure APT (network)
+#
+# Network hardening only (no host specific settings):
+# - HTTPS Debian sources (large packages over plain HTTP are
+#   fragile on filtering networks)
+# - no pipelining, retries, longer timeouts
 
 RUN \
-    echo "**** Base: Configure Corporate Proxy ****" \
+    echo "**** Base: Configure APT (network) ****" \
     && \
-    echo "Configure APT for the corporate proxy" \
+    echo "**** Retries & timeouts ****" \
         && printf '%s\n' \
-          "Acquire::http::Proxy \"${HTTP_PROXY}\";" \
-          "Acquire::https::Proxy \"${HTTPS_PROXY}\";" \
-          'Acquire::http::Pipeline-Depth "0";' \
-          'Acquire::https::Pipeline-Depth "0";' \
-          'Acquire::Retries "2";' \
-          'Acquire::http::Timeout "60";' \
-          'Acquire::https::Timeout "180";' \
-          > /etc/apt/apt.conf.d/80-corporate-proxy \
+            'Acquire::http::Pipeline-Depth "0";' \
+            'Acquire::https::Pipeline-Depth "0";' \
+            'Acquire::Retries "5";' \
+            'Acquire::http::Timeout "60";' \
+            'Acquire::https::Timeout "180";' \
+            > /etc/apt/apt.conf.d/80-network \
     && \
-    echo "Bootstrap or repair the CA bundle over the original HTTP source" \
+    echo "**** Bootstrap CA bundle (over the original HTTP source) ****" \
         && if ! test -s /etc/ssl/certs/ca-certificates.crt; \
            then \
-           echo "Bootstrap or repair the CA bundle over the original HTTP source" \
-             && apt-get update \
-             && apt-get install --reinstall -y --no-install-recommends ca-certificates \
+             apt-get update \
+             && apt-get install --reinstall --no-install-recommends -y \
+                 ca-certificates \
              && update-ca-certificates --fresh; \
            fi \
         && test -s /etc/ssl/certs/ca-certificates.crt \
     && \
-    echo "Use HTTPS for Debian downloads, especially larger packages" \
+    echo "**** Use HTTPS Debian sources ****" \
         && sed -i \
-          's|http://deb.debian.org|https://deb.debian.org|g' \
-          /etc/apt/sources.list.d/debian.sources \
+            's|http://deb.debian.org|https://deb.debian.org|g' \
+            /etc/apt/sources.list.d/debian.sources \
     && \
     echo "**** Section cleanup ****" \
         && rm -rf \

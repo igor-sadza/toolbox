@@ -1,2 +1,7 @@
 node_modules/*
 package-lock.json
+
+# Local environment (secrets) - use .env.example as template
+.env
+.env.*
+!.env.example

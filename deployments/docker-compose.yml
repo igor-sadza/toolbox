@@ -123,14 +123,6 @@ services:
         NPM_CODEX:              ${NPM_CODEX}
         PIPX_UV:                ${PIPX_UV}
 
-        # -- Proxy 
-        HTTP_PROXY:             ${HTTP_PROXY} 
-        HTTPS_PROXY:            ${HTTPS_PROXY} 
-        NO_PROXY:               ${NO_PROXY}
-
-        # -- Github
-        GITHUB_TOKEN:           ${GITHUB_TOKEN}
-
     # =============================================================================
     # : Environments 
     # =============================================================================
