@@ -167,19 +167,31 @@ printf 'package main\n\nfunc main() {}\n'                            > main.go
 printf 'echo hi\n'                                                   > a.sh
 
 cat > /tmp/probe.lua <<'LUA'
-vim.defer_fn(function()
+local deadline = vim.uv.now() + 20000
+
+local function probe()
   local names = {}
   for _, c in ipairs(vim.lsp.get_clients({ bufnr = 0 })) do
     names[#names + 1] = c.name
   end
+
+  if #names == 0 and vim.uv.now() < deadline then
+    vim.defer_fn(probe, 250)
+    return
+  end
+
   table.sort(names)
   local msgs = vim.api.nvim_exec2("messages", { output = true }).output
   local errors = select(2, msgs:gsub("E%d+:", "")) + select(2, msgs:gsub("[Ee]rror", ""))
+
   io.stdout:write(string.format("%s %s %s %s %d\n",
     vim.fn.expand("%"), vim.bo.filetype, tostring(pcall(vim.treesitter.get_parser, 0)),
     #names > 0 and table.concat(names, ",") or "-", errors))
+
   vim.cmd("qa!")
-end, 10000)
+end
+
+probe()
 LUA
 
 for f in compose.yaml .github/workflows/ci.yml chart/templates/cm.yaml chart/values.yaml \
