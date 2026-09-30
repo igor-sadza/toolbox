@@ -13,8 +13,26 @@
 
 set -euo pipefail
 
-# pull_request = build + test only (never publishes)
-act pull_request \
-  --action-offline-mode \
-  --secret WORKFLOW_TOKEN="$(gh auth token)" \
+# ===================================
+# Arguments
+# ===================================
+
+# Runner image (avoids act's interactive first-run prompt).
+RUNNER_IMAGE="${ACT_RUNNER_IMAGE:-catthehacker/ubuntu:act-latest}"
+
+act_args=(
+  --platform "ubuntu-latest=${RUNNER_IMAGE}"
   --workflows "${PWD}/.github/workflows/build.yml"
+)
+
+# Token is optional: pull_request mode never publishes.
+if command -v gh >/dev/null 2>&1 && token="$(gh auth token 2>/dev/null)"; then
+  act_args+=(--secret "WORKFLOW_TOKEN=${token}")
+fi
+
+# ===================================
+# Execute
+# ===================================
+
+# pull_request = build + test only (never publishes)
+exec act pull_request "${act_args[@]}" "$@"
