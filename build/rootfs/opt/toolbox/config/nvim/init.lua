@@ -453,6 +453,7 @@ require("lazy").setup({
         "vim",
         "vimdoc",
         "yaml",
+        "terraform"
       }
 
       -- Expose the list for image/bootstrap installation.
@@ -563,6 +564,7 @@ require("lazy").setup({
         "shfmt",
         "goimports",
         "gofumpt",
+        "terraform-ls"
       },
       run_on_start = true,
       start_delay = 3000,
@@ -978,4 +980,9 @@ vim.api.nvim_create_autocmd({ "BufEnter", "FileType" }, {
       end
     end
   end,
+})
+
+-- 3. Terraform
+vim.lsp.config("terraformls", {
+  filetypes = { "tf", "terraform", "terraform-vars" },
 })
