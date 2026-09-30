@@ -5,8 +5,8 @@
 # Released under the GPLv3 license
 # ----------------------------------------------------------
 #
-# FILE: ./usr/bin/toolbox.sh
-# DESC: Container main executable 
+# FILE: ./build/rootfs/usr/bin/toolbox.sh
+# DESC: Container main executable (per-user session)
 #
 ############################################################
 
@@ -32,13 +32,7 @@ install \
     -o "${TOOLBOX_UID}" \
     -g "${TOOLBOX_GID}" \
     -m 0700 \
-    "${runtime_dir}"
-
-install \
-    -d \
-    -o "${TOOLBOX_UID}" \
-    -g "${TOOLBOX_GID}" \
-    -m 0700 \
+    "${runtime_dir}" \
     "${runtime_dir}/go"
 
 # ===================================
@@ -62,16 +56,27 @@ export GOTMPDIR="${runtime_dir}/go"
 # Working directory
 # ===================================
 
-cd "${TOOLBOX_CWD}"
+cd "${TOOLBOX_CWD}" 2>/dev/null || cd "${HOME}" 2>/dev/null || cd /
 
 # ===================================
-# Supplementary groups
+# User & primary group
 # ===================================
 
-getent group "${TOOLBOX_GID}" >/dev/null ||
-    groupadd --gid "${TOOLBOX_GID}" "${TOOLBOX_USER}"
+# Primary group: keep the host GID so files created in the
+# host home keep their usual group ownership.
+if ! getent group "${TOOLBOX_GID}" >/dev/null; then
+    group_name="${TOOLBOX_USER}"
 
-getent passwd "${TOOLBOX_UID}" >/dev/null ||
+    getent group "${group_name}" >/dev/null &&
+        group_name="toolbox-${TOOLBOX_GID}"
+
+    groupadd \
+        --gid "${TOOLBOX_GID}" \
+        "${group_name}"
+fi
+
+if ! getent passwd "${TOOLBOX_UID}" >/dev/null &&
+   ! getent passwd "${TOOLBOX_USER}" >/dev/null; then
     useradd \
         --uid "${TOOLBOX_UID}" \
         --gid "${TOOLBOX_GID}" \
@@ -79,38 +84,26 @@ getent passwd "${TOOLBOX_UID}" >/dev/null ||
         --shell /bin/bash \
         --no-create-home \
         "${TOOLBOX_USER}"
+fi
 
 # ===================================
 # Supplementary groups
 # ===================================
 
+# Host groups + toolbox-shared (shared caches/tools) + sudo.
 SUDO_GID="$(getent group sudo | awk -F: 'NR == 1 { print $3 }')"
 test -n "${SUDO_GID}"
 
 session_groups="$(
     printf '%s\n' \
-        "${TOOLBOX_GID}" \
         "${TOOLBOX_GROUPS//,/$'\n'}" \
+        "${TOOLBOX_SHARED_GID}" \
         "${SUDO_GID}" |
     awk \
-        -v primary="${TOOLBOX_SHARED_GID}" \
+        -v primary="${TOOLBOX_GID}" \
         'NF && $0 != primary && !seen[$0]++' |
     paste -sd, -
 )"
-
-# ===================================
-# Passwordless sudo 
-# ===================================
-
-install -d -m 0755 /etc/sudoers.d
-
-printf '%s\n' \
-    '%sudo ALL=(ALL:ALL) NOPASSWD: ALL' \
-    > /etc/sudoers.d/toolbox
-
-chmod 0440 /etc/sudoers.d/toolbox
-
-visudo -q -cf /etc/sudoers.d/toolbox
 
 # ===================================
 # Execute
@@ -120,7 +113,7 @@ umask 0002
 
 exec setpriv \
     --reuid="${TOOLBOX_UID}" \
-    --regid="${TOOLBOX_SHARED_GID}" \
+    --regid="${TOOLBOX_GID}" \
     --groups="${session_groups}" \
     --inh-caps=-all \
     /bin/bash

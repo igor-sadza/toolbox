@@ -6,7 +6,7 @@
 # ----------------------------------------------------------
 # 
 # FILE: ./build/Dockerfile
-# DESC: 
+# DESC: Toolbox image definition
 #
 ############################################################
 
@@ -170,7 +170,6 @@ RUN \
 
 ARG \
     INSTALL_DOCKER="false" \
-    DOCKER_GID=109 \
     DOCKER_CE_VERSION="" \
     DOCKER_CE_CLI_VERSION="" \
     CONTAINERD_VERSION="" \
@@ -585,52 +584,48 @@ RUN \
     fi
 
 # -----------------------------------------------
-# Core: Miscellaneous
-#
+# Core: Miscellaneous (APT)
 
 RUN \
-    echo "**** Core: Miscellaneous (apt) ****" \
+    echo "**** Core: Install Miscellaneous (apt) ****" \
     && \
-    echo "**** Install extra apt packages ****" \
-      && apt-get update \
-      && apt-get install -y --no-install-recommends \
-          socat \
-          dnsutils \
-          bash-completion \
-          git \
-          tmux \
-          lua5.1 \
-          luarocks \
-          golang \
-          ripgrep \
-          fd-find \
-          libicu76 \
-          pipx \
-          python3 \
-          build-essential \
-          file \
-          sqlite3 \
-          rustup \
-          libclang-dev \
-          clang \
-          supervisor \
-          liquidprompt \
-          ncurses-bin \
-          figlet \
-          lolcat \
-          boxes \
-          python3-pip \
-          tree \
-          iputils-ping \
-          acl \
-          ssh \
-          nfs-common \
-          netcat-openbsd \
+    echo "**** Installing ****" \
+        && apt-get update \
+        && apt-get install --no-install-recommends -y \
+            socat \
+            dnsutils \
+            bash-completion \
+            git \
+            tmux \
+            lua5.1 \
+            luarocks \
+            golang \
+            ripgrep \
+            fd-find \
+            libicu76 \
+            pipx \
+            python3 \
+            build-essential \
+            file \
+            sqlite3 \
+            rustup \
+            libclang-dev \
+            clang \
+            supervisor \
+            liquidprompt \
+            ncurses-bin \
+            figlet \
+            lolcat \
+            boxes \
+            python3-pip \
+            tree \
+            iputils-ping \
+            acl \
+            ssh \
+            nfs-common \
+            netcat-openbsd \
     && \
-    echo "**** Extra Config ****" \
-       && git config --global credential.helper store \
-    && \
-    echo "**** Cleanup ****" \
+    echo "**** Section cleanup ****" \
         && apt-get clean autoclean -y \
         && apt-get autoremove -y \
         && rm -rf \
@@ -722,7 +717,6 @@ ENV \
 # -----------------------------------------------
 
 ENV \
-    LOCAL_RCFILE=${TOOLBOX_CONFIG}/liquidpromptrc \
     LIQUIDPROMPT_THEME=powerline
 
 # -----------------------------------------------
@@ -763,28 +757,8 @@ RUN \
         -m 0755 \
         "${TOOLBOX_ROOT}" \
         "${TOOLBOX_CONFIG}" \
-        "${TOOLBOX_RUNTIME_ROOT}"; \
-    \
-    echo "**** Postflight: Create shared workspace targets ****" \
-    && install \
-        -d \
-        -o root \
-        -g toolbox-shared \
-        -m 2775 \
-        "${TOOLBOX_DATA}" \
-        "${TOOLBOX_STATE}" \
-        "${TOOLBOX_CACHE}" \
-        "${TOOLBOX_BIN}" \
-        "${NPM_CONFIG_CACHE}" \
-        "${GOPATH}" \
-        "${GOCACHE}" \
-        "${GOMODCACHE}" \
-        "${CARGO_HOME}" \
-        "${CARGO_TARGET_DIR}" \
-        "${RUSTUP_HOME}" \
-        "${UV_TOOL_DIR}" \
-        "${UV_CACHE_DIR}"; \
-    \
+        "${TOOLBOX_RUNTIME_ROOT}" \
+    && \
     echo "**** Postflight: Create shared workspace targets ****" \
     && install \
         -d \
@@ -885,35 +859,64 @@ COPY \
     rootfs/ /
 
 # -----------------------------------------------
-# Postflight: Configure overlay permissions
+# Postflight: Configure overlay
 # -----------------------------------------------
 
+# hadolint ignore=SC2016
 RUN \
-    chmod 0755 \
-        /entrypoint.sh \
-        /usr/bin/toolbox.sh
+    echo "**** Postflight: Configure overlay ****" \
+    && \
+    echo "**** Executable permissions ****" \
+        && chmod 0755 \
+            /entrypoint.sh \
+            /usr/bin/toolbox.sh \
+            "${TOOLBOX_BIN}/vi" \
+            "${TOOLBOX_BIN}/tmux" \
+    && \
+    echo "**** Load /etc/bash.bashrc.d fragments ****" \
+        && printf '%s\n' \
+            '' \
+            '# BEGIN bash.bashrc.d loader' \
+            '# Load global interactive Bash configuration fragments.' \
+            'if [[ $- == *i* ]] && [[ -d /etc/bash.bashrc.d ]]; then' \
+            '    for file in /etc/bash.bashrc.d/*.sh; do' \
+            '        [[ -r "${file}" ]] && source "${file}"' \
+            '    done' \
+            '    unset file' \
+            'fi' \
+            '# END bash.bashrc.d loader' \
+            >> /etc/bash.bashrc \
+    && \
+    echo "**** Passwordless sudo ****" \
+        && printf '%s\n' \
+            '%sudo ALL=(ALL:ALL) NOPASSWD: ALL' \
+            > /etc/sudoers.d/toolbox \
+        && chmod 0440 /etc/sudoers.d/toolbox \
+        && visudo -q -cf /etc/sudoers.d/toolbox
 
 # -----------------------------------------------
 # Postflight: Install Neovim plugins
 # -----------------------------------------------
 
 RUN \
-    echo "**** Fetch Neovim Plugins | ${INSTALL_NEOVIM} ****" \
+    echo "**** Postflight: Install Neovim plugins | ${INSTALL_NEOVIM} ****" \
     && umask 0002 \
-    && if [ "${INSTALL_NEOVIM}" = "true" ]; then \
-        echo "**** Fetch Neovim Plugins ****" \
-            && export XDG_CONFIG_HOME="${TOOLBOX_CONFIG}" \
-            && export XDG_DATA_HOME="${TOOLBOX_DATA}" \
-            && export XDG_STATE_HOME="${TOOLBOX_STATE}" \
-            && export XDG_CACHE_HOME="${TOOLBOX_CACHE}" \
-            && /usr/local/bin/vi \
-                --headless \
-                "+Lazy! restore" \
-                "+MasonToolsInstallSync" \
-                +qa \
-        && \
-        echo "**** Clean Neovim cache ****" \
-            && rm -rf -- "${TOOLBOX_CACHE:?}/nvim"; \
+    && \
+    if [ "${INSTALL_NEOVIM}" = "true" ]; \
+    then \
+    echo "**** Restore plugins (lazy-lock.json) and Mason tools ****" \
+        && export XDG_CONFIG_HOME="${TOOLBOX_CONFIG}" \
+        && export XDG_DATA_HOME="${TOOLBOX_DATA}" \
+        && export XDG_STATE_HOME="${TOOLBOX_STATE}" \
+        && export XDG_CACHE_HOME="${TOOLBOX_CACHE}" \
+        && /usr/local/bin/vi \
+            --headless \
+            "+Lazy! restore" \
+            "+MasonToolsInstallSync" \
+            +qa \
+    && \
+    echo "**** Section cleanup ****" \
+        && rm -rf -- "${TOOLBOX_CACHE:?}/nvim"; \
     fi
 
 # -----------------------------------------------
@@ -982,3 +985,6 @@ WORKDIR \
 
 ENTRYPOINT \
     ["/entrypoint.sh"]
+
+CMD \
+    ["sleep", "infinity"]

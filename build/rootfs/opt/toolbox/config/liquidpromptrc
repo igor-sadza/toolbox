@@ -1,6 +1,12 @@
-# ~/.config/liquidpromptrc
-
-# Minimal configuration for the Unfold theme
+############################################################
+# Copyright (c) 2026 Igor Sadza
+# Released under the GPLv3 license
+# ----------------------------------------------------------
+#
+# FILE: ./build/rootfs/opt/toolbox/config/liquidpromptrc
+# DESC: Liquidprompt configuration (theme: $LIQUIDPROMPT_THEME)
+#
+############################################################
 
 # ── Essential feedback ─────────────────────────────────────
 

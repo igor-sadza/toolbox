@@ -23,7 +23,7 @@ SHELL := /bin/bash
 # Files
 # ------------------------
 COMPOSE_FILE := deployments/docker-compose.yml
-CMD_COMPOSE := docker compose -f $(COMPOSE_FILE) 
+CMD_COMPOSE := docker compose -f $(COMPOSE_FILE)
 ACT_FILE := .cicd/github/act.sh
 
 ENV ?= dev
@@ -53,8 +53,8 @@ endef
 # ------------------------
 # Arguments
 # ------------------------
-ARGS 		 := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
-APP_NAME := toolbox
+ARGS     ?=
+APP_NAME ?= toolbox
 
 # ------------------------
 # Installation
@@ -88,12 +88,12 @@ start:
 # Build 
 # ----------------------------------------------------------
 # 	Desc:
-# 		- Run application
+# 		- Build application image locally
 # 	Usage:
 # 		- make build 
-# 		- make run APP_NAME=<app>
+# 		- make build APP_NAME=<app>
 # 	Tips:
-# 		- make run ARGS=--no-cache
+# 		- make build ARGS=--no-cache
 #
 ############################################################
 
@@ -116,11 +116,11 @@ build:
 .PHONY: stop
 stop:
 	@echo "------------------------"
-	@echo " > Stoping $(APP_NAME)..."
+	@echo " > Stopping $(APP_NAME)..."
 	@echo "------------------------"
 	@$(LOAD_ENV)
-	@$(CMD_COMPOSE) -f deployments/docker-compose.yml stop $(APP_NAME)
-	@$(CMD_COMPOSE) -f deployments/docker-compose.yml rm -f $(APP_NAME)
+	@$(CMD_COMPOSE) stop $(APP_NAME)
+	@$(CMD_COMPOSE) rm -f $(APP_NAME)
 
 ############################################################
 # Install 
@@ -130,7 +130,7 @@ stop:
 #
 # 	Usage:
 # 		- make install
-#			- sudo make install
+# 		- sudo make install
 #
 ############################################################
 
@@ -140,7 +140,7 @@ install:
 	@echo " > Install toolbox..."
 	@echo "------------------------"
 	@$(INSTALL) -d "$(BINDIR)"
-	@$(INSTALL) -m 755 toolbox "$(BINDIR)/toolbox"	
+	@$(INSTALL) -m 755 toolbox "$(BINDIR)/toolbox"
 
 ############################################################
 # CICD 

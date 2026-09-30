@@ -1,14 +1,18 @@
-#-----------------------------------------------------------------------------
-# Purpose:      Semanitc-Release configuration file
-# @author       ~
-# @version      ~
-#-----------------------------------------------------------------------------
+############################################################
+# Copyright (c) 2026 Igor Sadza
+# Released under the GPLv3 license
+# ----------------------------------------------------------
+#
+# FILE: ./.releaserc.yml
+# DESC: Semantic-Release configuration
+#
+############################################################
 
 ##############################################################################
 # Options
 # https://semantic-release.gitbook.io/semantic-release/usage/configuration#options
 
-# Allow releasing from develop branhc - overriding default github plugins
+# Allow releasing from develop branch - overriding default github plugins
 branches:
   - develop
 

@@ -1,10 +1,10 @@
 ############################################################
 # Copyright (c) 2026 Igor Sadza
-# Released under the GLPv3 General license
+# Released under the GPLv3 license
 # ----------------------------------------------------------
 #
 # FILE: ./deployments/docker-compose.yml
-# DESC: Docker compose building definition 
+# DESC: Docker compose definition
 #
 ############################################################
 
@@ -19,6 +19,7 @@ services:
     container_name: toolbox 
     image:          toolbox
     restart:        unless-stopped
+    init:           true
 
     # =============================================================================
     # : Volumes
@@ -134,5 +135,5 @@ services:
     # : Environments 
     # =============================================================================
     environment:
-        # -- Liqiudprompt
+        # -- Liquidprompt
         LIQUIDPROMPT_THEME:     ${LIQUIDPROMPT_THEME}

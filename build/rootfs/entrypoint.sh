@@ -5,7 +5,7 @@
 # Released under the GPLv3 license
 # ----------------------------------------------------------
 #
-# FILE: ./overlay/entrypoint.sh
+# FILE: ./build/rootfs/entrypoint.sh
 # DESC: Container initialization entrypoint
 #
 ############################################################
@@ -17,30 +17,6 @@ set -Eeuo pipefail
 # ===================================
 
 umask 0022
-
-# ===================================
-# Load global interactive Bash
-# configuration fragments
-# ===================================
-
-BASHRC='/etc/bash.bashrc'
-BASHRC_MARKER='# BEGIN bash.bashrc.d loader'
-
-if ! grep -Fq "${BASHRC_MARKER}" "${BASHRC}"; then
-    cat >> "${BASHRC}" <<'EOF'
-
-# BEGIN bash.bashrc.d loader
-# Load global interactive Bash configuration fragments.
-if [[ $- == *i* ]] && [[ -d /etc/bash.bashrc.d ]]; then
-    for file in /etc/bash.bashrc.d/*.sh; do
-        [[ -r "${file}" ]] && source "${file}"
-    done
-
-    unset file
-fi
-# END bash.bashrc.d loader
-EOF
-fi
 
 # ===================================
 # Execute all container init scripts
@@ -74,34 +50,7 @@ run_init_scripts \
     '*.sh'
 
 # ===================================
-# Prepare run/start scripts
-# ===================================
-
-make_executable_scripts() {
-    local directory="$1"
-    local pattern="$2"
-    local script
-
-    [[ -d "${directory}" ]] || return 0
-
-    while IFS= read -r -d '' script; do
-        chmod +x "${script}"
-    done < <(
-        find "${directory}" \
-            -maxdepth 1 \
-            -type f \
-            -name "${pattern}" \
-            -print0 |
-        sort -z
-    )
-}
-
-make_executable_scripts \
-    '/usr/bin' \
-    '*.sh'
-
-# ===================================
 # Execute
 # ===================================
 
-exec sleep infinity
+exec "$@"
