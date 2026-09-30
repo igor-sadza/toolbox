@@ -93,7 +93,7 @@ jobs:
         test -n "${latest}"
         sed -i -E \
           "s|(github:mason-org/mason-registry@)[^\"]+|\1${latest}|" \
-          "${NVIM_DIR}/init.lua"
+          "${NVIM_DIR}/lua/toolbox/plugins/lsp.lua"
         echo "Mason registry: ${latest}"
 
     - name: Summary
@@ -115,7 +115,7 @@ jobs:
           Monthly update of pinned Neovim inputs:
 
           - `lazy-lock.json` via `:Lazy! update` (in `${{ env.IMAGE }}`)
-          - Mason registry pin in `init.lua` (latest release)
+          - Mason registry pin in `lua/toolbox/plugins/lsp.lua` (latest release)
 
           The build workflow restores exactly these versions and runs the
           smoke test. Merge when green.

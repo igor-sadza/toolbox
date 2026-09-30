@@ -109,4 +109,4 @@ make start TOOLBOX_VERSION=1.8.2      # one-off
 | `apt-get install ... Version '...' for '...' was not found` | vendor removed an old version | bump the version in `.env.example` |
 | `NO_PUBKEY` / `EXPKEYSIG` | vendor rotated its GPG key | nothing to pin - rebuild picks up the new key; check vendor notice |
 | weekly build fails, release builds fine | Debian security update broke something | stay on `:latest`, investigate, pin package if needed |
-| smoke test `plugins` / `mason` fails | plugin API change | revert the `nvim-lock` PR or fix `init.lua` |
+| smoke test `plugins` / `mason` fails | plugin API change | revert the `nvim-lock` PR or fix `lua/toolbox/plugins/*.lua` |
