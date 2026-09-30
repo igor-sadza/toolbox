@@ -124,7 +124,8 @@ RUN \
 
 ARG \
     INSTALL_NEOVIM="false" \
-    NEOVIM_VERSION="latest"
+    NEOVIM_VERSION="" \
+    NEOVIM_SHA256=""
 
 RUN \
     echo "**** Core: Install Neovim | Version: ${NEOVIM_VERSION} ****" \
@@ -134,36 +135,19 @@ RUN \
     echo "**** Prepare ****" \
         && apt-get update \
         && apt-get install --no-install-recommends -y \
+            ca-certificates \
             curl \
-            jq \
     && \
-    echo "**** Fetching Release URL ****" \
-        && API_URL="https://api.github.com/repos/neovim/neovim" \
-        && if [ "$NEOVIM_VERSION" = "latest" ]; then \
-              NEOVIM_VERSION="$(\
-              curl -fsSL \
-              ${API_URL}/releases/latest | jq -r .tag_name \
-              )"; \
-           fi \
-        && RELEASE_URL="$( \
-               curl -fsSL \
-               "${API_URL}/releases?per_page=100" | \
-               jq -r --arg VERSION "${NEOVIM_VERSION}" \
-               '.[] \
-               | select( \
-                   .tag_name == $VERSION \
-               ) \
-               | .assets[] \
-               | select( \
-                   .browser_download_url \
-                   | contains("nvim-linux-x86_64") \
-                     and endswith(".tar.gz") \
-               ) \
-               | .browser_download_url' \
-           )" \
+    echo "**** Fetching Release ****" \
+        && : "${NEOVIM_VERSION:?NEOVIM_VERSION is required}" \
+        && : "${NEOVIM_SHA256:?NEOVIM_SHA256 is required}" \
+        && RELEASE_URL="https://github.com/neovim/neovim/releases/download/${NEOVIM_VERSION}/nvim-linux-x86_64.tar.gz" \
+        && curl -o /tmp/nvim.tar.gz -fsSL "${RELEASE_URL}" \
+    && \
+    echo "**** Verifying Checksum ****" \
+        && printf '%s  %s\n' "${NEOVIM_SHA256}" /tmp/nvim.tar.gz | sha256sum -c - \
     && \
     echo "**** Installing Release ****" \
-        && curl -o /tmp/nvim.tar.gz -fsSL "${RELEASE_URL}" \
         && mkdir -p /opt/neovim \
         && tar -xzf /tmp/nvim.tar.gz \
             --strip-components=1 \
@@ -243,7 +227,8 @@ RUN \
 
 ARG \
     INSTALL_K9S="false" \
-    K9S_VERSION="latest"
+    K9S_VERSION="" \
+    K9S_SHA256=""
 
 RUN \
     echo "**** Core: Install K9S | Version: ${K9S_VERSION} ****" \
@@ -253,42 +238,26 @@ RUN \
     echo "**** Prepare ****" \
         && apt-get update \
         && apt-get install --no-install-recommends -y \
+            ca-certificates \
             curl \
-            jq \
     && \
-    echo "**** Fetching Release URL ****" \
-        && API_URL="https://api.github.com/repos/derailed/k9s" \
-        && if [ "$K9S_VERSION" = "latest" ]; then \
-              K9S_VERSION="$(\
-                curl -fsSL \
-		${API_URL}/releases/latest | jq -r .tag_name \
-              )"; \
-           fi \
-        && RELEASE_URL="$( \
-           curl -fsSL \
-             "${API_URL}/releases?per_page=100" | \
-           jq -r --arg VERSION "${K9S_VERSION}" \
-             '.[] \
-             | select( \
-                 .tag_name == $VERSION \
-             ) \
-             | .assets[] \
-             | select( \
-                 .browser_download_url \
-                 | contains("Linux_amd64") \
-                   and endswith(".tar.gz") \
-             ) \
-             | .browser_download_url' \
-           )" \
+    echo "**** Fetching Release ****" \
+        && : "${K9S_VERSION:?K9S_VERSION is required}" \
+        && : "${K9S_SHA256:?K9S_SHA256 is required}" \
+        && RELEASE_URL="https://github.com/derailed/k9s/releases/download/${K9S_VERSION}/k9s_Linux_amd64.tar.gz" \
+        && curl -o /tmp/k9s.tar.gz -fsSL "${RELEASE_URL}" \
+    && \
+    echo "**** Verifying Checksum ****" \
+        && printf '%s  %s\n' "${K9S_SHA256}" /tmp/k9s.tar.gz | sha256sum -c - \
     && \
     echo "**** Installing Release ****" \
-        && curl -o /tmp/k9s.tar.gz -fsSL "${RELEASE_URL}" \
-        && tar -xzf /tmp/k9s.tar.gz -C /opt \
-        && ls /opt \
+        && mkdir -p /opt/k9s \
+        && tar -xzf /tmp/k9s.tar.gz \
+            --directory=/opt/k9s \
         && ln -sf \
-            /opt/k9s \
+            /opt/k9s/k9s \
             /usr/local/bin/k9s \
-        && k9s version \
+        && k9s version --short \
     && \
     echo "**** Section cleanup ****" \
         && apt-get clean autoclean -y \
@@ -529,101 +498,90 @@ RUN \
     fi
 
 # -----------------------------------------------
-# Core: Install Gomplate 
+# Core: Gomplate (BIN)
 
 ARG \
     INSTALL_GOMPLATE="false" \
-    GOMPLATE_VERSION=""
+    GOMPLATE_VERSION="" \
+    GOMPLATE_SHA256=""
 
 RUN \
-    echo "**** Core: Install Gomplate | Version: latest ****" \
+    echo "**** Core: Install Gomplate | Version: ${GOMPLATE_VERSION} ****" \
     && \
     if [ "${INSTALL_GOMPLATE}" = "true" ]; \
     then \
-        echo "**** Prepare ****" \
-            && apt-get update \
-            && apt-get install --no-install-recommends -y \
-               curl \
-               jq \
-        && \
-        echo "**** Installation ****" \
-            && ARCHITECTURE="$(dpkg --print-architecture)" \
-            && API_URL="https://api.github.com/repos/hairyhenderson/gomplate" \
-            && BIN_RELEASE_URL="$( \
-                curl -fsSL \
-                  "${API_URL}/releases/latest" | \
-                jq -r \
-                  --arg ARCHITECTURE "${ARCHITECTURE}" \
-                  '.assets[] \
-                  | select( \
-                    .name \
-                    | contains("linux") \
-                      and contains($ARCHITECTURE) \
-                  ) \
-                  | .browser_download_url' \
-               )" \
-            && curl -o gomplate -fsSL "${BIN_RELEASE_URL}" \
-            && chmod +x gomplate \
-            && mv gomplate /usr/bin/gomplate \
-        && \
-        echo "**** Cleanup ****" \
-            && apt-get clean autoclean -y \
-            && apt-get autoremove -y \
-            && rm -rf \
-                /var/lib/apt/lists/* \
-                /var/tmp/* \
-                /tmp/*; \
+    echo "**** Prepare ****" \
+        && apt-get update \
+        && apt-get install --no-install-recommends -y \
+            ca-certificates \
+            curl \
+    && \
+    echo "**** Fetching Release ****" \
+        && : "${GOMPLATE_VERSION:?GOMPLATE_VERSION is required}" \
+        && : "${GOMPLATE_SHA256:?GOMPLATE_SHA256 is required}" \
+        && RELEASE_URL="https://github.com/hairyhenderson/gomplate/releases/download/${GOMPLATE_VERSION}/gomplate_linux-amd64" \
+        && curl -o /tmp/gomplate -fsSL "${RELEASE_URL}" \
+    && \
+    echo "**** Verifying Checksum ****" \
+        && printf '%s  %s\n' "${GOMPLATE_SHA256}" /tmp/gomplate | sha256sum -c - \
+    && \
+    echo "**** Installing Release ****" \
+        && install -m 0755 /tmp/gomplate /usr/local/bin/gomplate \
+        && gomplate --version \
+    && \
+    echo "**** Section cleanup ****" \
+        && apt-get clean autoclean -y \
+        && apt-get autoremove -y \
+        && rm -rf \
+            /var/lib/apt/lists/* \
+            /var/tmp/* \
+            /tmp/*; \
     fi
 
 # -----------------------------------------------
-# Core: Install ACT 
+# Core: ACT (BIN)
 
 ARG \
     INSTALL_ACT="false" \
-    ACT_VERSION=""
+    ACT_VERSION="" \
+    ACT_SHA256=""
 
 RUN \
-    echo "**** Core: Install ACT | Version: latest ****" \
+    echo "**** Core: Install ACT | Version: ${ACT_VERSION} ****" \
     && \
-    if [ "${INSTALL_GOMPLATE}" = "true" ]; \
+    if [ "${INSTALL_ACT}" = "true" ]; \
     then \
-      echo "**** Prepare ****" \
-          && apt-get update \
-          && apt-get install --no-install-recommends -y \
-             curl \
-             jq \
-      && \
-      echo "**** Installation ****" \
-          && ARCHITECTURE="x86_64" \
-          && API_URL="https://api.github.com/repos/nektos/act" \
-          && RELEASE_URL="$( \
-	       curl -fsSL \
-               "${API_URL}/releases/latest" | \
-             jq -r \
-               --arg ARCHITECTURE "${ARCHITECTURE}" \
-               '.assets[] \
-               | select( \
-                 .name \
-                 | contains("Linux_x86_64") \
-                   and contains($ARCHITECTURE) \
-               ) \
-               | .browser_download_url' \
-             )" \
-          && curl -o /tmp/act.tar.gz -fsSL "${RELEASE_URL}" \
-          && mkdir -p /opt/act \
-          && tar -xzf /tmp/act.tar.gz \
-              --directory=/opt/act \
-          && chmod +x /opt/act/act \
-          && ln -sf /opt/act/act /usr/local/bin/act \
-          && act --version \
-      && \
-      echo "**** Cleanup ****" \
-          && apt-get clean autoclean -y \
-          && apt-get autoremove -y \
-          && rm -rf \
-              /var/lib/apt/lists/* \
-              /var/tmp/* \
-              /tmp/*; \
+    echo "**** Prepare ****" \
+        && apt-get update \
+        && apt-get install --no-install-recommends -y \
+            ca-certificates \
+            curl \
+    && \
+    echo "**** Fetching Release ****" \
+        && : "${ACT_VERSION:?ACT_VERSION is required}" \
+        && : "${ACT_SHA256:?ACT_SHA256 is required}" \
+        && RELEASE_URL="https://github.com/nektos/act/releases/download/${ACT_VERSION}/act_Linux_x86_64.tar.gz" \
+        && curl -o /tmp/act.tar.gz -fsSL "${RELEASE_URL}" \
+    && \
+    echo "**** Verifying Checksum ****" \
+        && printf '%s  %s\n' "${ACT_SHA256}" /tmp/act.tar.gz | sha256sum -c - \
+    && \
+    echo "**** Installing Release ****" \
+        && mkdir -p /opt/act \
+        && tar -xzf /tmp/act.tar.gz \
+            --directory=/opt/act \
+        && ln -sf \
+            /opt/act/act \
+            /usr/local/bin/act \
+        && act --version \
+    && \
+    echo "**** Section cleanup ****" \
+        && apt-get clean autoclean -y \
+        && apt-get autoremove -y \
+        && rm -rf \
+            /var/lib/apt/lists/* \
+            /var/tmp/* \
+            /tmp/*; \
     fi
 
 # -----------------------------------------------
@@ -869,40 +827,55 @@ RUN \
 # -----------------------------------------------
 
 ARG \
-    CARGO_TREE_SITTER_CLI=0.26.11 \
-    NPM_NEOVIM=5.4.0 \
-    NPM_OPENCODE_AI=1.18.13 \
-    PIPX_UV=0.12.1 \
-    NPM_CODEX=0.153.4
-
-# ---------------------
-# Base: Proxy config 
+    RUST_TOOLCHAIN="" \
+    CARGO_TREE_SITTER_CLI="" \
+    NPM_NEOVIM="" \
+    NPM_OPENCODE_AI="" \
+    NPM_CODEX="" \
+    PIPX_UV=""
 
 RUN \
-    echo "**** Core: Miscellaneous (npm / cargo / pipx) ****" \
+    echo "**** Postflight: Install extra packages (pipx / npm / cargo) ****" \
     && umask 0002 \
-    && echo "**** Install extra Python packages ****" \
-    && pipx install \
-        --global \
-        "uv${PIPX_UV:+==${PIPX_UV}}" \
-    && if [ "${INSTALL_NODE_JS}" = "true" ]; then \
-        echo "**** Install extra Node packages ****" \
-        && npm install \
+    && \
+    echo "**** Install extra Python packages ****" \
+        && : "${PIPX_UV:?PIPX_UV is required}" \
+        && pipx install \
             --global \
-            "opencode-ai@${NPM_OPENCODE_AI}" \
-            "neovim@${NPM_NEOVIM}" \
-	    "@openai/codex@${NPM_CODEX}" \
-        && npm cache clean --force; \
-    fi \
-    && echo "**** Install extra Cargo packages ****" \
-    && rustup default stable \
-    && cargo install \
-        tree-sitter-cli \
-        --locked \
-        --root /usr/local \
-        ${CARGO_TREE_SITTER_CLI:+--version=${CARGO_TREE_SITTER_CLI}} \
-    && echo "**** Clean installation caches ****" \
-    && python3 -m pip cache purge
+            "uv==${PIPX_UV}" \
+    && \
+    echo "**** Install extra Node packages ****" \
+        && if [ "${INSTALL_NODE_JS}" = "true" ]; \
+           then \
+             : "${NPM_OPENCODE_AI:?NPM_OPENCODE_AI is required}" \
+             && : "${NPM_NEOVIM:?NPM_NEOVIM is required}" \
+             && : "${NPM_CODEX:?NPM_CODEX is required}" \
+             && npm install \
+                 --global \
+                 "opencode-ai@${NPM_OPENCODE_AI}" \
+                 "neovim@${NPM_NEOVIM}" \
+                 "@openai/codex@${NPM_CODEX}" \
+             && npm cache clean --force; \
+           fi \
+    && \
+    echo "**** Install Rust toolchain | Version: ${RUST_TOOLCHAIN} ****" \
+        && : "${RUST_TOOLCHAIN:?RUST_TOOLCHAIN is required}" \
+        && rustup toolchain install \
+            "${RUST_TOOLCHAIN}" \
+            --profile minimal \
+        && rustup default "${RUST_TOOLCHAIN}" \
+    && \
+    echo "**** Install extra Cargo packages ****" \
+        && : "${CARGO_TREE_SITTER_CLI:?CARGO_TREE_SITTER_CLI is required}" \
+        && cargo install \
+            tree-sitter-cli \
+            --locked \
+            --root /usr/local \
+            --version "${CARGO_TREE_SITTER_CLI}" \
+    && \
+    echo "**** Section cleanup ****" \
+        && python3 -m pip cache purge \
+        && rm -rf -- "${CARGO_HOME:?}/registry" "${CARGO_HOME:?}/git"
 
 # -----------------------------------------------
 # Postflight: Copy overlays
@@ -935,7 +908,7 @@ RUN \
             && export XDG_CACHE_HOME="${TOOLBOX_CACHE}" \
             && /usr/local/bin/vi \
                 --headless \
-                "+Lazy! sync" \
+                "+Lazy! restore" \
                 "+MasonToolsInstallSync" \
                 +qa \
         && \

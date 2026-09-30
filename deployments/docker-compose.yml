@@ -67,6 +67,7 @@ services:
         # -- Neovim
         INSTALL_NEOVIM:         ${INSTALL_NEOVIM}
         NEOVIM_VERSION:         ${NEOVIM_VERSION}
+        NEOVIM_SHA256:          ${NEOVIM_SHA256}
 
         # -- Docker
         INSTALL_DOCKER:         ${INSTALL_DOCKER}
@@ -79,6 +80,7 @@ services:
         # -- K9s
         INSTALL_K9S:            ${INSTALL_K9S}
         K9S_VERSION:            ${K9S_VERSION}
+        K9S_SHA256:             ${K9S_SHA256}
 
         # -- Helm
         INSTALL_HELM:           ${INSTALL_HELM}
@@ -105,11 +107,19 @@ services:
         # -- Gomplate
         INSTALL_GOMPLATE:       ${INSTALL_GOMPLATE}
         GOMPLATE_VERSION:       ${GOMPLATE_VERSION}
+        GOMPLATE_SHA256:        ${GOMPLATE_SHA256}
+
+        # -- ACT
+        INSTALL_ACT:            ${INSTALL_ACT}
+        ACT_VERSION:            ${ACT_VERSION}
+        ACT_SHA256:             ${ACT_SHA256}
 
         # -- Extra packages (python; node; cargo)
+        RUST_TOOLCHAIN:         ${RUST_TOOLCHAIN}
         CARGO_TREE_SITTER_CLI:  ${CARGO_TREE_SITTER_CLI}
         NPM_NEOVIM:             ${NPM_NEOVIM}
         NPM_OPENCODE_AI:        ${NPM_OPENCODE_AI}
+        NPM_CODEX:              ${NPM_CODEX}
         PIPX_UV:                ${PIPX_UV}
 
         # -- Proxy 

@@ -521,11 +521,19 @@ require("lazy").setup({
 	-- Mason
 	-- ----------------------------------------------------------
 
+	-- The registry is pinned so every image build resolves the
+	-- same tool versions (no GitHub API lookup for "latest").
+	-- Bumped by Renovate / .github/workflows/nvim-lock.yml.
 	{
     "mason-org/mason.nvim",
 		cmd = "Mason",
 		build = ":MasonUpdate",
-    opts = {},
+    opts = {
+      registries = {
+        -- renovate: datasource=github-releases depName=mason-org/mason-registry
+        "github:mason-org/mason-registry@2026-09-30-aboard-mob",
+      },
+    },
   },
 
   {
