@@ -114,6 +114,32 @@ RUN \
             /var/tmp/* \
             /tmp/*
 
+# ---------------------
+# Base: Security updates (optional)
+#
+# Pinned base digest = reproducible. The weekly CI build sets
+# APT_UPGRADE=true to pull the latest Debian security fixes.
+
+ARG \
+    APT_UPGRADE="false"
+
+RUN \
+    echo "**** Base: Security updates | Enabled: ${APT_UPGRADE} ****" \
+    && \
+    if [ "${APT_UPGRADE}" = "true" ]; \
+    then \
+    echo "**** Upgrading ****" \
+        && apt-get update \
+        && apt-get upgrade -y --no-install-recommends \
+    && \
+    echo "**** Section cleanup ****" \
+        && apt-get clean autoclean -y \
+        && rm -rf \
+            /var/lib/apt/lists/* \
+            /var/tmp/* \
+            /tmp/*; \
+    fi
+
 # =============================================================================
 # : Core
 # =============================================================================

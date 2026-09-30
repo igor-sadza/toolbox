@@ -147,6 +147,26 @@ install:
 	@$(INSTALL) -m 755 toolbox "$(BINDIR)/toolbox"
 
 ############################################################
+# Test
+# ---------------------------------------------------------
+# 	Desc:
+# 		- Smoke test a local image (tools, neovim, hygiene)
+# 	Usage:
+# 		- make test
+# 		- make test IMAGE=ghcr.io/igor-sadza/toolbox:edge
+#
+############################################################
+
+IMAGE ?= toolbox
+
+.PHONY: test
+test:
+	@echo "------------------------"
+	@echo " > Testing $(IMAGE)..."
+	@echo "------------------------"
+	@.cicd/tests/smoke.sh "$(IMAGE)"
+
+############################################################
 # CICD 
 # ---------------------------------------------------------
 # 	Desc:
