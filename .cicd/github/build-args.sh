@@ -16,7 +16,7 @@ set -Eeuo pipefail
 ENV_FILE="${1:-.env.example}"
 
 # Runtime-only keys are not build args.
-SKIP_KEYS='^(LIQUIDPROMPT_THEME)$'
+SKIP_KEYS='^(TOOLBOX_IMAGE|TOOLBOX_VERSION|LIQUIDPROMPT_THEME)$'
 
 # ===================================
 # Collect keys (in file order)

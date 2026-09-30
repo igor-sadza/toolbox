@@ -648,6 +648,9 @@ RUN \
             acl \
             ssh \
             nfs-common \
+            fuse3 \
+            sshfs \
+            rclone \
             netcat-openbsd \
     && \
     echo "**** Section cleanup ****" \

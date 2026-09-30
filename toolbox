@@ -6,21 +6,92 @@
 # ----------------------------------------------------------
 #
 # FILE: ./toolbox
-# DESC: Toolbox execution script 
+# DESC: Toolbox execution script
+#
+# USAGE:
+#   toolbox                 interactive shell (as you, in $PWD)
+#   toolbox <cmd> [args]    run a single command in the toolbox
+#   toolbox --host          privileged root shell on the HOST
+#                           (chroot /; for the rare host-level work)
+#   toolbox --help
 #
 ############################################################
 
-set -euo pipefail
+set -Eeuo pipefail
+
+CONTAINER="${TOOLBOX_CONTAINER:-toolbox}"
+
+# ===================================
+# Helpers
+# ===================================
+
+die() {
+    printf 'toolbox: %s\n' "$*" >&2
+    exit 1
+}
+
+usage() {
+    sed -n '/^# USAGE:/,/^####/p' "$0" | sed '1d;$d;s/^# \{0,1\}//'
+}
+
+tty_flags=(--interactive)
+[[ -t 0 && -t 1 ]] && tty_flags+=(--tty)
+
+# ===================================
+# Arguments
+# ===================================
+
+case "${1-}" in
+    -h|--help)
+        usage
+        exit 0
+        ;;
+    --host)
+        shift
+        image="$(docker inspect --format '{{.Config.Image}}' "${CONTAINER}" 2>/dev/null)" ||
+            die "container '${CONTAINER}' not found (run: make start)"
+
+        (( $# > 0 )) || set -- /bin/bash
+
+        echo "toolbox: entering HOST as root (chroot /) - be careful" >&2
+
+        exec docker run \
+            --rm \
+            "${tty_flags[@]}" \
+            --privileged \
+            --pid=host \
+            --net=host \
+            --ipc=host \
+            --volume /:/host \
+            --entrypoint chroot \
+            "${image}" \
+            /host "$@"
+        ;;
+esac
+
+# ===================================
+# Preflight
+# ===================================
+
+state="$(docker inspect --format '{{.State.Status}}' "${CONTAINER}" 2>/dev/null)" ||
+    die "container '${CONTAINER}' not found (run: make start)"
+
+[[ "${state}" == "running" ]] ||
+    die "container '${CONTAINER}' is ${state} (run: make start)"
+
+# ===================================
+# Execute
+# ===================================
 
 exec docker exec \
-  --interactive \
-  --tty \
-  --user 0:0 \
-  --env "TOOLBOX_UID=$(id -u)" \
-  --env "TOOLBOX_GID=$(id -g)" \
-  --env "TOOLBOX_GROUPS=$(id -G | tr ' ' ',')" \
-  --env "TOOLBOX_USER=$(id -un)" \
-  --env "TOOLBOX_HOME=${HOME}" \
-  --env "TOOLBOX_CWD=${PWD}" \
-  toolbox \
-  /usr/bin/toolbox.sh
+    "${tty_flags[@]}" \
+    --user 0:0 \
+    --env "TOOLBOX_UID=$(id -u)" \
+    --env "TOOLBOX_GID=$(id -g)" \
+    --env "TOOLBOX_GROUPS=$(id -G | tr ' ' ',')" \
+    --env "TOOLBOX_USER=$(id -un)" \
+    --env "TOOLBOX_HOME=${HOME}" \
+    --env "TOOLBOX_CWD=${PWD}" \
+    --env "TERM=${TERM:-xterm-256color}" \
+    "${CONTAINER}" \
+    /usr/bin/toolbox.sh "$@"

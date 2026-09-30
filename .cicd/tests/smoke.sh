@@ -89,6 +89,52 @@ check mason \
     'n="$(find "${TOOLBOX_DATA}/nvim/mason/bin" -mindepth 1 | wc -l)"; echo "${n} tools"; test "${n}" -ge 15'
 
 # ===================================
+# Session (toolbox.sh user mapping)
+# ===================================
+
+section "Session"
+
+cid="$(docker run --detach --rm "${IMAGE}")"
+trap 'docker rm -f "${cid}" >/dev/null 2>&1 || true' EXIT
+
+session() {
+    docker exec \
+        --user 0:0 \
+        --env TOOLBOX_UID=4242 \
+        --env TOOLBOX_GID=4343 \
+        --env TOOLBOX_GROUPS=4343,4444 \
+        --env TOOLBOX_USER=smoke \
+        --env TOOLBOX_HOME=/tmp \
+        --env TOOLBOX_CWD=/tmp \
+        "${cid}" \
+        /usr/bin/toolbox.sh "$@"
+}
+
+check_session() {
+    local name="$1"
+    local expected="$2"
+    shift 2
+    local output
+
+    output="$(session "$@" 2>&1 || true)"
+
+    if [[ "${output}" == *"${expected}"* ]]; then
+        printf '  [ OK ] %-14s %s\n' "${name}" "${expected}"
+    else
+        printf '  [FAIL] %-14s expected "%s", got "%s"\n' "${name}" "${expected}" "${output}"
+        failures=$((failures + 1))
+    fi
+}
+
+check_session uid      "4242"  id -u
+check_session gid      "4343"  id -g
+check_session groups   "29999" id -G
+check_session umask    "0002"  bash -c umask
+check_session cwd      "/tmp"  pwd
+check_session sudo     "0"     sudo -n id -u
+check_session path     "/opt/toolbox/bin" bash -c 'echo "${PATH}"'
+
+# ===================================
 # Image hygiene
 # ===================================
 

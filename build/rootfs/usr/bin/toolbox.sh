@@ -7,6 +7,7 @@
 #
 # FILE: ./build/rootfs/usr/bin/toolbox.sh
 # DESC: Container main executable (per-user session)
+# USAGE: toolbox.sh [command [args...]]   (default: /bin/bash)
 #
 ############################################################
 
@@ -111,9 +112,12 @@ session_groups="$(
 
 umask 0002
 
+# No arguments -> interactive shell; otherwise run the command.
+(( $# > 0 )) || set -- /bin/bash
+
 exec setpriv \
     --reuid="${TOOLBOX_UID}" \
     --regid="${TOOLBOX_GID}" \
     --groups="${session_groups}" \
     --inh-caps=-all \
-    /bin/bash
+    "$@"

@@ -46,13 +46,15 @@ endif
 define LOAD_ENV
 set -a
 source "$(ENV_FILE)"
+$(if $(filter command line,$(origin TOOLBOX_VERSION)),TOOLBOX_VERSION="$(TOOLBOX_VERSION)")
+$(if $(filter command line,$(origin TOOLBOX_IMAGE)),TOOLBOX_IMAGE="$(TOOLBOX_IMAGE)")
 set +a
 endef
 
 # ------------------------
 # Makefile Default Goal 
 # ------------------------
-.DEFAULT_GOAL := run
+.DEFAULT_GOAL := help
 
 # ------------------------
 # Arguments
@@ -68,25 +70,90 @@ BINDIR  ?= $(PREFIX)/bin
 INSTALL ?= install
 
 ############################################################
-# Start
+# Help
 # ----------------------------------------------------------
 # 	Desc:
-# 		- Start application
+# 		- List targets (default goal)
 # 	Usage:
-# 		- make start 
-# 		- make start ARGS=<args> APP_NAME=<app>
-# 	Tips:
-# 		- make start ARGS=--progress=plain
+# 		- make
+# 		- make help
 #
 ############################################################
 
-.PHONY: start 
-start:
+.PHONY: help
+help:
+	@echo "------------------------"
+	@echo " > $(APP_NAME) targets"
+	@echo "------------------------"
+	@echo "  start        pull GHCR image and (re)create container"
+	@echo "  start-local  build image locally and (re)create container"
+	@echo "  pull         pull GHCR image only"
+	@echo "  build        build image locally"
+	@echo "  stop         stop and remove container"
+	@echo "  host         privileged root shell on the host"
+	@echo "  test         smoke test an image (IMAGE=...)"
+	@echo "  install      install 'toolbox' wrapper into $(BINDIR)"
+	@echo "  cicd         run CI workflow locally (act)"
+
+############################################################
+# Start
+# ----------------------------------------------------------
+# 	Desc:
+# 		- Pull GHCR image and (re)create container
+# 	Usage:
+# 		- make start
+# 		- make start TOOLBOX_VERSION=<tag>
+# 	Tips:
+# 		- tags: latest | X.Y.Z | weekly | edge
+#
+############################################################
+
+.PHONY: start
+start: pull
 	@echo "------------------------"
 	@echo " > Starting $(APP_NAME)..."
 	@echo "------------------------"
 	@$(LOAD_ENV)
-	@$(CMD_COMPOSE) up --build --detach --force-recreate $(ARGS) $(APP_NAME)
+	@$(CMD_COMPOSE) up --detach --force-recreate --pull never $(ARGS) $(APP_NAME)
+
+############################################################
+# Start (local)
+# ----------------------------------------------------------
+# 	Desc:
+# 		- Build image locally and (re)create container
+# 	Usage:
+# 		- make start-local
+# 	Tips:
+# 		- make start-local ARGS=--progress=plain
+#
+############################################################
+
+.PHONY: start-local
+start-local: build
+	@echo "------------------------"
+	@echo " > Starting $(APP_NAME) (local build)..."
+	@echo "------------------------"
+	@$(LOAD_ENV)
+	@$(CMD_COMPOSE) up --detach --force-recreate --pull never $(APP_NAME)
+
+############################################################
+# Pull
+# ----------------------------------------------------------
+# 	Desc:
+# 		- Pull GHCR image
+# 	Usage:
+# 		- make pull
+# 		- make pull TOOLBOX_VERSION=<tag>
+#
+############################################################
+
+.PHONY: pull
+pull:
+	@echo "------------------------"
+	@echo " > Pulling $(APP_NAME)..."
+	@echo "------------------------"
+	@$(LOAD_ENV)
+	@$(CMD_COMPOSE) pull $(APP_NAME)
 
 ############################################################
 # Build 
@@ -103,8 +170,25 @@ start:
 
 .PHONY: build
 build:
+	@echo "------------------------"
+	@echo " > Building $(APP_NAME)..."
+	@echo "------------------------"
 	@$(LOAD_ENV)
 	@$(CMD_COMPOSE) build $(ARGS) $(APP_NAME)
+
+############################################################
+# Host
+# ----------------------------------------------------------
+# 	Desc:
+# 		- Privileged root shell on the host (chroot /)
+# 	Usage:
+# 		- make host
+#
+############################################################
+
+.PHONY: host
+host:
+	@./toolbox --host
 
 ############################################################
 # Stop 

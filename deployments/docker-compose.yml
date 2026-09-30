@@ -15,9 +15,9 @@ services:
   # ==================================================
 
   toolbox:
-    hostname:       toolbox 
-    container_name: toolbox 
-    image:          toolbox
+    hostname:       toolbox
+    container_name: toolbox
+    image:          ${TOOLBOX_IMAGE:-ghcr.io/igor-sadza/toolbox}:${TOOLBOX_VERSION:-latest}
     restart:        unless-stopped
     init:           true
 
@@ -26,13 +26,18 @@ services:
     # =============================================================================
     volumes:
       # Host home paths are identical inside toolbox.
-      - /home:/home
+      # (rslave: mounts made later on the host show up here too)
+      - /home:/home:rslave
 
-      # Full host filesystem escape hatch.
-      - /:/host
+      # Full host filesystem escape hatch (read-write).
+      - /:/host:rslave
 
       # Docker daemon.
       - /var/run/docker.sock:/var/run/docker.sock
+
+      # NFS shares (daemon-mounted, survive recreate/update).
+      # Declare them in the top-level 'volumes:' section below.
+      # - nfs-data:/mnt/nfs/data
 
     # =============================================================================
     # : Network 
@@ -46,15 +51,22 @@ services:
     # =============================================================================
     # : Extra Settings 
     # =============================================================================
+    # SYS_ADMIN + apparmor:unconfined -> ad-hoc 'sudo mount -t nfs ...'
+    # and FUSE (sshfs / rclone mount) inside the container.
     cap_add:
       - SYS_ADMIN
 
     security_opt:
       - apparmor:unconfined
 
+    devices:
+      - /dev/fuse:/dev/fuse
+
     # =============================================================================
     # : Build 
     # =============================================================================
+    # Local build only (make build / make start-local);
+    # the default path is pulling the GHCR image (make start).
     build:
       dockerfile: "./Dockerfile"
       context:    "../build/"
@@ -129,3 +141,18 @@ services:
     environment:
         # -- Liquidprompt
         LIQUIDPROMPT_THEME:     ${LIQUIDPROMPT_THEME}
+
+# =============================================================================
+# : Volumes (NFS example)
+# -----------------------------------------------------------------------------
+# : Mounted by the Docker daemon - no extra capabilities needed.
+# : Prefer NFSv4 (v3 also needs rpcbind/statd).
+# =============================================================================
+
+# volumes:
+#   nfs-data:
+#     driver: local
+#     driver_opts:
+#       type:   nfs
+#       o:      "addr=nas.example.lan,nfsvers=4.2,rw,soft,timeo=150"
+#       device: ":/export/data"
