@@ -932,7 +932,7 @@ RUN \
     && \
     if [ "${INSTALL_NEOVIM}" = "true" ]; \
     then \
-    echo "**** Restore plugins (lazy-lock.json) and Mason tools ****" \
+    echo "**** Restore plugins (lazy-lock.json), Mason tools, Treesitter parsers ****" \
         && export XDG_CONFIG_HOME="${TOOLBOX_CONFIG}" \
         && export XDG_DATA_HOME="${TOOLBOX_DATA}" \
         && export XDG_STATE_HOME="${TOOLBOX_STATE}" \
@@ -941,6 +941,7 @@ RUN \
             --headless \
             "+Lazy! restore" \
             "+MasonToolsInstallSync" \
+            "+lua require('nvim-treesitter').install(vim.g.toolbox_parsers):wait(600000)" \
             +qa \
     && \
     echo "**** Section cleanup ****" \

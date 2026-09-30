@@ -135,7 +135,7 @@ Image tags: `latest` (last release), `X.Y.Z` / `X.Y` / `X`, `weekly` (last relea
 <img src="./.media/assets/sections/assets_sections_b.svg" align="left" width="5%" height="auto"/>
 
 Toolbox is shipped with the tools below (generated from [`.env.example`](./.env.example) by `.cicd/docs/update-readme.sh`).
-On top of that: `git`, `tmux`, `go`, `python3` + `pipx`, `clang`, `ripgrep`, `fd`, `sqlite3`, `nfs-common`, `fuse3`, `sshfs`, `rclone`, liquidprompt and ~20 LSP servers / formatters via Mason.
+On top of that: `git`, `tmux`, `go`, `python3` + `pipx`, `clang`, `ripgrep`, `fd`, `sqlite3`, `nfs-common`, `fuse3`, `sshfs`, `rclone`, liquidprompt and 26 LSP servers / formatters via Mason (Python, Go, Terraform, Helm, Compose, GitHub Actions, TOML, Lua, Bash, YAML, ...).
 
 <!-- tools:start -->
 | Tool | Method | Version |

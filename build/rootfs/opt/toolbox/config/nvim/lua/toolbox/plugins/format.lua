@@ -42,8 +42,12 @@ return {
         html = prettier,
         markdown = prettier,
         yaml = prettier,
-        go = { "goimports", "gofmt" },
+        go = { "goimports", "gofumpt" },
         sh = { "shfmt" },
+        python = { "ruff_organize_imports", "ruff_format" },
+        terraform = { "terraform_fmt" },
+        ["terraform-vars"] = { "terraform_fmt" },
+        toml = { "taplo" },
       },
 
       default_format_opts = {

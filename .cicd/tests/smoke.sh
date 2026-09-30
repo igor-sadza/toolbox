@@ -85,8 +85,101 @@ check plugins \
 check lockfile \
     'test -s "${TOOLBOX_CONFIG}/nvim/lazy-lock.json"'
 
+# Expected lists are read from the config itself (single source).
+NVIM_PLUGINS='${TOOLBOX_CONFIG}/nvim/lua/toolbox/plugins'
+
 check mason \
-    'n="$(find "${TOOLBOX_DATA}/nvim/mason/bin" -mindepth 1 | wc -l)"; echo "${n} tools"; test "${n}" -ge 15'
+    'missing=""; n=0
+     for t in $(sed -n "/ensure_installed = {/,/},/p" '"${NVIM_PLUGINS}"'/lsp.lua | grep -oE "\"[a-z0-9-]+\"" | tr -d "\""); do
+       n=$((n + 1)); test -d "${TOOLBOX_DATA}/nvim/mason/packages/${t}" || missing="${missing} ${t}"
+     done
+     echo "${n} tools${missing:+, missing:${missing}}"; test -z "${missing}" && test "${n}" -gt 0'
+
+check parsers \
+    'missing=""; n=0
+     for p in $(sed -n "/local parsers = {/,/}/p" '"${NVIM_PLUGINS}"'/treesitter.lua | grep -oE "\"[a-z_]+\"" | tr -d "\""); do
+       n=$((n + 1)); test -f "${TOOLBOX_DATA}/nvim/site/parser/${p}.so" || missing="${missing} ${p}"
+     done
+     echo "${n} parsers${missing:+, missing:${missing}}"; test -z "${missing}" && test "${n}" -gt 0'
+
+# ===================================
+# Languages (filetype, treesitter, LSP attach, no errors)
+# ===================================
+
+section "Languages"
+
+# Runs inside the image; prints: <file> <filetype> <ts> <lsp,...> <errors>
+languages_output="$(
+    docker run --rm -i --entrypoint bash "${IMAGE}" -s <<'SCRIPT' 2>/dev/null
+set -u
+W=/tmp/langs
+mkdir -p "${W}/.github/workflows" "${W}/chart/templates" "${W}/py"
+cd "${W}" && git init -q
+
+printf 'services:\n  a:\n    image: debian\n'                        > compose.yaml
+printf 'on: push\njobs:\n  a:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo\n' > .github/workflows/ci.yml
+printf 'apiVersion: v2\nname: c\nversion: 0.1.0\n'                  > chart/Chart.yaml
+printf 'kind: ConfigMap\nmetadata:\n  name: {{ .Release.Name }}\n'  > chart/templates/cm.yaml
+printf 'replicas: 1\n'                                               > chart/values.yaml
+printf 'import os\nprint(os.name)\n'                                 > py/a.py
+printf '[a]\nb = 1\n'                                                > a.toml
+printf 'resource "a" "b" {}\n'                                       > main.tf
+printf '{{ .Env.HOME }}\n'                                           > a.tmpl
+printf 'FROM debian\n'                                               > Dockerfile
+printf 'local x = vim.uv\nprint(x)\n'                                > a.lua
+printf 'package main\n\nfunc main() {}\n'                            > main.go
+printf 'echo hi\n'                                                   > a.sh
+
+cat > /tmp/probe.lua <<'LUA'
+vim.defer_fn(function()
+  local names = {}
+  for _, c in ipairs(vim.lsp.get_clients({ bufnr = 0 })) do
+    names[#names + 1] = c.name
+  end
+  table.sort(names)
+  local msgs = vim.api.nvim_exec2("messages", { output = true }).output
+  local errors = select(2, msgs:gsub("E%d+:", "")) + select(2, msgs:gsub("[Ee]rror", ""))
+  io.stdout:write(string.format("%s %s %s %s %d\n",
+    vim.fn.expand("%"), vim.bo.filetype, tostring(pcall(vim.treesitter.get_parser, 0)),
+    #names > 0 and table.concat(names, ",") or "-", errors))
+  vim.cmd("qa!")
+end, 10000)
+LUA
+
+for f in compose.yaml .github/workflows/ci.yml chart/templates/cm.yaml chart/values.yaml \
+         py/a.py a.toml main.tf a.tmpl Dockerfile a.lua main.go a.sh; do
+    timeout 60 vi --headless "${f}" "+luafile /tmp/probe.lua" 2>/dev/null | tail -n1
+done
+SCRIPT
+)"
+
+# <file> <expected filetype> <expected LSP (one of the attached)>
+while read -r file ft lsp; do
+    line="$(grep -E "^${file//./\\.} " <<<"${languages_output}" || true)"
+    read -r _ got_ft got_ts got_lsp got_err <<<"${line:-x - false - 1}"
+
+    if [[ "${got_ft}" == "${ft}" && "${got_ts}" == "true" &&
+          ",${got_lsp}," == *",${lsp},"* && "${got_err}" == "0" ]]; then
+        printf '  [ OK ] %-14s %s\n' "${file##*/}" "${got_ft} | ${got_lsp}"
+    else
+        printf '  [FAIL] %-14s expected %s/%s, got ft=%s ts=%s lsp=%s errors=%s\n' \
+            "${file##*/}" "${ft}" "${lsp}" "${got_ft}" "${got_ts}" "${got_lsp}" "${got_err}"
+        failures=$((failures + 1))
+    fi
+done <<'EXPECTED'
+compose.yaml yaml.docker-compose docker_compose_language_service
+.github/workflows/ci.yml yaml gh_actions_ls
+chart/templates/cm.yaml helm helm_ls
+chart/values.yaml yaml.helm-values helm_ls
+py/a.py python basedpyright
+a.toml toml taplo
+main.tf terraform terraformls
+a.tmpl gotmpl gopls
+Dockerfile dockerfile dockerls
+a.lua lua lua_ls
+main.go go gopls
+a.sh sh bashls
+EXPECTED
 
 # ===================================
 # Session (toolbox.sh user mapping)

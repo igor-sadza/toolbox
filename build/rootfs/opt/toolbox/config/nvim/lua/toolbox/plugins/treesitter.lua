@@ -19,13 +19,20 @@ return {
       local parsers = {
         "bash",
         "css",
+        "diff",
         "dockerfile",
+        "git_config",
+        "gitcommit",
         "gitignore",
         "go",
+        "gotmpl",
+        "hcl",
+        "helm",
         "html",
         "javascript",
         "json",
         "lua",
+        "make",
         "markdown",
         "markdown_inline",
         "python",
@@ -38,6 +45,10 @@ return {
         "vimdoc",
         "yaml",
       }
+
+      -- Exposed for the image build, which waits for the install:
+      --   +lua require("nvim-treesitter").install(vim.g.toolbox_parsers):wait(600000)
+      vim.g.toolbox_parsers = parsers
 
       -- No-op when already installed (parsers are baked into the image).
       require("nvim-treesitter").install(parsers)

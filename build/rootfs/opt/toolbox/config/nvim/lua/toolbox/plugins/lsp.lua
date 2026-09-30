@@ -56,17 +56,24 @@ return {
     opts = {
       ensure_installed = {
         -- Language servers
+        "basedpyright",
         "bash-language-server",
         "clangd",
         "css-lsp",
+        "docker-compose-language-service",
         "dockerfile-language-server",
+        "gh-actions-language-server",
         "gopls",
+        "helm-ls",
         "html-lsp",
         "json-lsp",
         "lua-language-server",
         "marksman",
+        "ruff",
         "sqls",
+        "taplo",
         "terraform-ls",
+        "tflint",
         "typescript-language-server",
         "yaml-language-server",
 
@@ -137,6 +144,13 @@ return {
       -- Keymaps only when an LSP attaches (buffer-local).
       vim.api.nvim_create_autocmd("LspAttach", {
         callback = function(event)
+          local client = vim.lsp.get_client_by_id(event.data.client_id)
+
+          -- Python: hover from basedpyright, ruff only lints/fixes.
+          if client and client.name == "ruff" then
+            client.server_capabilities.hoverProvider = false
+          end
+
           local function map(mode, lhs, rhs, desc)
             vim.keymap.set(mode, lhs, rhs, { buffer = event.buf, silent = true, desc = desc })
           end
