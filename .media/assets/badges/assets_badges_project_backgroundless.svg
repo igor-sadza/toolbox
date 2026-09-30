@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300">
+  <!-- PLACEHOLDER - replace with the final asset (see .media/README.md) -->
+  
+  <rect x="4" y="4" width="292" height="292" rx="6" fill="none" stroke="#DAA520" stroke-width="2" stroke-dasharray="10 6"/>
+  <text x="50%" y="46%" fill="#DAA520" font-family="monospace" font-size="48" font-weight="bold" text-anchor="middle" dominant-baseline="middle">TOOLBOX</text>
+  <text x="50%" y="68%" fill="#888888" font-family="monospace" font-size="16" text-anchor="middle" dominant-baseline="middle">logo placeholder</text>
+</svg>
