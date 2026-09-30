@@ -1,0 +1,74 @@
+############################################################
+# Copyright (c) 2026 Igor Sadza
+# Released under the GPLv3 license
+# ----------------------------------------------------------
+#
+# FILE: ./.github/workflows/checksums.yml
+# DESC: Refresh BIN checksums on Renovate PRs
+#
+# ----------------------------------------------------------
+#  Renovate bumps *_VERSION in .env.example but cannot know
+#  the new *_SHA256. This job recomputes them (cross-checked
+#  against upstream checksum files) and pushes a commit to
+#  the PR branch, which re-triggers the build + smoke test.
+#
+############################################################
+
+name: "checksums"
+
+# ============================
+# Dispatchers
+# ============================
+
+on:
+  pull_request:
+    branches:
+      - develop
+    paths:
+      - '.env.example'
+
+# ============================
+# Repo permissions
+# ============================
+
+permissions:
+  contents: write
+
+# ============================
+# Jobs
+# ============================
+
+jobs:
+
+  # -------------
+  # checksums
+  # -------------
+  checksums:
+    name:    Update BIN checksums
+    runs-on: ubuntu-latest
+    if:      startsWith(github.head_ref, 'renovate/')
+
+    steps:
+    - name: Checkout PR branch
+      uses: actions/checkout@v7
+      with:
+        ref:   ${{ github.head_ref }}
+        # PAT so the pushed commit triggers the build workflow again.
+        token: ${{ secrets.WORKFLOW_TOKEN }}
+
+    - name: Update checksums
+      run: .cicd/github/update-checksums.sh .env.example
+
+    - name: Commit
+      shell: bash
+      run: |
+        set -Eeuo pipefail
+        if git diff --quiet -- .env.example; then
+          echo "Checksums already up to date"
+          exit 0
+        fi
+        git config user.name  "toolbox-bot"
+        git config user.email "toolbox-bot@users.noreply.github.com"
+        git add .env.example
+        git commit -m "dep: update BIN checksums"
+        git push

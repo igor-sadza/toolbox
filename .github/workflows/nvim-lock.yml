@@ -1,0 +1,121 @@
+############################################################
+# Copyright (c) 2026 Igor Sadza
+# Released under the GPLv3 license
+# ----------------------------------------------------------
+#
+# FILE: ./.github/workflows/nvim-lock.yml
+# DESC: Monthly Neovim plugin + Mason registry update PR
+#
+# ----------------------------------------------------------
+#  Renovate cannot update lazy.nvim / Mason pins. This job
+#  runs ':Lazy! update' inside the published :edge image,
+#  bumps the Mason registry pin to its latest release and
+#  opens a PR. The PR is built + smoke tested like any other.
+#
+############################################################
+
+name: "nvim-lock"
+
+# ============================
+# Dispatchers
+# ============================
+
+on:
+  schedule:
+    # 1st of the month, 05:00 UTC
+    - cron: '0 5 1 * *'
+
+  workflow_dispatch:
+
+# ============================
+# Parameters
+# ============================
+
+env:
+  IMAGE:      ghcr.io/igor-sadza/toolbox:edge
+  NVIM_DIR:   build/rootfs/opt/toolbox/config/nvim
+  SHARED_GID: 29999
+
+# ============================
+# Repo permissions
+# ============================
+
+permissions:
+  contents:      write
+  pull-requests: write
+
+# ============================
+# Jobs
+# ============================
+
+jobs:
+
+  # -------------
+  # update
+  # -------------
+  update:
+    name:    Update lazy-lock.json & Mason registry
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v7
+
+    - name: Log in to the Container registry
+      uses: docker/login-action@v4
+      with:
+        registry: ghcr.io
+        username: ${{ vars.GHCR_USERNAME || 'igor-sadza' }}
+        password: ${{ secrets.WORKFLOW_TOKEN }}
+
+    - name: Update lazy.nvim plugins
+      shell: bash
+      run: |
+        set -Eeuo pipefail
+        chmod -R a+rwX "${NVIM_DIR}"
+        docker run --rm \
+          --user "$(id -u):$(id -g)" \
+          --group-add "${SHARED_GID}" \
+          --entrypoint bash \
+          -v "${PWD}/${NVIM_DIR}:/opt/toolbox/config/nvim" \
+          "${IMAGE}" \
+          -c 'vi --headless "+Lazy! update" +qa'
+
+    - name: Bump Mason registry pin
+      shell: bash
+      run: |
+        set -Eeuo pipefail
+        latest="$(
+          curl -fsSI https://github.com/mason-org/mason-registry/releases/latest |
+          tr -d '\r' |
+          awk -F/ 'tolower($0) ~ /^location:/ { print $NF }'
+        )"
+        test -n "${latest}"
+        sed -i -E \
+          "s|(github:mason-org/mason-registry@)[^\"]+|\1${latest}|" \
+          "${NVIM_DIR}/init.lua"
+        echo "Mason registry: ${latest}"
+
+    - name: Summary
+      shell: bash
+      run: git diff --stat
+
+    - name: Open pull request
+      uses: peter-evans/create-pull-request@v8
+      with:
+        # PAT so the PR triggers the build workflow.
+        token:          ${{ secrets.WORKFLOW_TOKEN }}
+        branch:         bot/nvim-lock
+        base:           develop
+        delete-branch:  true
+        commit-message: "dep: update neovim plugins and mason registry"
+        title:          "dep: update neovim plugins and mason registry"
+        labels:         dependencies
+        body: |
+          Monthly update of pinned Neovim inputs:
+
+          - `lazy-lock.json` via `:Lazy! update` (in `${{ env.IMAGE }}`)
+          - Mason registry pin in `init.lua` (latest release)
+
+          The build workflow restores exactly these versions and runs the
+          smoke test. Merge when green.
