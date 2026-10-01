@@ -31,6 +31,7 @@ vim.filetype.add({
   extension = {
     gotmpl = "gotmpl",
     tmpl = "gotmpl",
+    tf = "terraform",
   },
 
   pattern = {
@@ -50,3 +51,4 @@ vim.filetype.add({
     [".*/%.github/actions/.*/action%.ya?ml"] = "yaml",
   },
 })
+
