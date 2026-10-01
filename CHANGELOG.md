@@ -1,3 +1,9 @@
+## [1.2.1](https://github.com/igor-sadza/toolbox/compare/v1.2.0...v1.2.1) (2026-10-01)
+
+### > Fixes
+
+* corrected lazy sync command; corrected treesiter version; corrected vi entry ([ca9b076](https://github.com/igor-sadza/toolbox/commit/ca9b0767c9f85c94aeea8d3fe7fc698bcb1c8456))
+
 ## [1.2.0](https://github.com/igor-sadza/toolbox/compare/v1.1.0...v1.2.0) (2026-10-01)
 
 ### > Features
