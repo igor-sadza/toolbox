@@ -1,3 +1,13 @@
+############################################################
+# Copyright (c) 2026 Igor Sadza
+# Released under the GPLv3 license
+# ----------------------------------------------------------
+#
+# FILE: ./build/rootfs/etc/bash.bashrc.d/20_configure_bashcompletion.sh
+# DESC: Interactive shells - bash completion
+#
+############################################################
+
 # -----------------------------------
 # This file is sourced by interactive Bash shells only.
 # -----------------------------------

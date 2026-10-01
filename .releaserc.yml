@@ -1,14 +1,18 @@
-#-----------------------------------------------------------------------------
-# Purpose:      Semanitc-Release configuration file
-# @author       ~
-# @version      ~
-#-----------------------------------------------------------------------------
+############################################################
+# Copyright (c) 2026 Igor Sadza
+# Released under the GPLv3 license
+# ----------------------------------------------------------
+#
+# FILE: ./.releaserc.yml
+# DESC: Semantic-Release configuration
+#
+############################################################
 
 ##############################################################################
 # Options
 # https://semantic-release.gitbook.io/semantic-release/usage/configuration#options
 
-# Allow releasing from develop branhc - overriding default github plugins
+# Allow releasing from develop branch - overriding default github plugins
 branches:
   - develop
 
@@ -35,6 +39,7 @@ plugins:
     - { type: build,    release: patch }
     - { type: chore,    release: false }
     - { type: ci,       release: false }
+    - { type: cicd,     release: false }
     - { type: dep,      release: patch }
     - { type: docs,     release: patch }
     - { type: feat,     release: minor }
@@ -48,28 +53,23 @@ plugins:
 #-----------------------------------------------------------------------------
 
   # Plugin to generate changelog content with conventional-changelog
-  #- path: '@semantic-release/release-notes-generator'
-  #  preset: "conventionalcommits"
-  #  writerOpts:
-  #    groupBy:          "type"
-  #    commitGroupsSort: "title"
-  #    commitsSort:      "header"
-  #    headerPartial:    "# > Release {{version}} ({{date}})\n\n"
-  #    commitPartial:    "- {{message}} ({{hash}})\n"
-  #  presetConfig:
-  #    types:
-  #      - { type: 'build',    section: '> Build' }
-  #      - { type: 'chore',    section: '> Chores' }
-  #      - { type: 'ci',       section: '> CI/CD' }
-  #      - { type: 'dep',      section: '> Dependencies' }
-  #      - { type: 'docs',     section: '> Docs' }
-  #      - { type: 'feat',     section: '> Features' }
-  #      - { type: 'fix',      section: '> Fixes' }
-  #      - { type: 'perf',     section: '> Performance' }
-  #      - { type: 'refactor', section: '> Refactor' }
-  #      - { type: 'revert',   section: '> Reverts' }
-  #      - { type: 'style',    section: '> Style' }
-  #      - { type: 'test',     section: '> Tests' }
+  - path: '@semantic-release/release-notes-generator'
+    preset: "conventionalcommits"
+    presetConfig:
+      types:
+        - { type: 'feat',     section: '> Features' }
+        - { type: 'fix',      section: '> Fixes' }
+        - { type: 'build',    section: '> Build' }
+        - { type: 'dep',      section: '> Dependencies' }
+        - { type: 'perf',     section: '> Performance' }
+        - { type: 'revert',   section: '> Reverts' }
+        - { type: 'docs',     section: '> Docs' }
+        - { type: 'style',    section: '> Style' }
+        - { type: 'cicd',     section: '> CI/CD',    hidden: true }
+        - { type: 'ci',       section: '> CI/CD',    hidden: true }
+        - { type: 'chore',    section: '> Chores',   hidden: true }
+        - { type: 'refactor', section: '> Refactor', hidden: true }
+        - { type: 'test',     section: '> Tests',    hidden: true }
 
 #-----------------------------------------------------------------------------
 
@@ -97,25 +97,13 @@ plugins:
 
 #-----------------------------------------------------------------------------
 
-  # Plugin to publish a Github release.
-  - path: '@semantic-release/github'
+  # Plugin to commit release assets to the project's git repository.
+  - path: '@semantic-release/git'
+    assets:
+    - 'CHANGELOG.md'
+    message: "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
 
 #-----------------------------------------------------------------------------
 
-  # Plugin to commit release assets to the project's git repository.
-  #- path: '@semantic-release/git'
-  #  assets:
-  #  - '*.md'
-  #  - 'templates/**/*.yml'
-  #  message: "chore(release): ${nextRelease.version} [ci-skip]\n\n${nextRelease.notes}"
-
-##############################################################################
-# VerifyConditions
-# https://semantic-release.gitbook.io/semantic-release/extending/plugins-list#official-plugins
-
-verifyConditions:
-# Verify the presence and the validity of the configuration
-- '@semantic-release/changelog'
-
-# Verify the presence and the validity of the Git authentication and release configuration
-- '@semantic-release/git'
+  # Plugin to publish a Github release.
+  - path: '@semantic-release/github'

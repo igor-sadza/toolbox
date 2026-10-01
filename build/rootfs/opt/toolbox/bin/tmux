@@ -1,5 +1,15 @@
 #!/usr/bin/env bash
 
+############################################################
+# Copyright (c) 2026 Igor Sadza
+# Released under the GPLv3 license
+# ----------------------------------------------------------
+#
+# FILE: ./build/rootfs/opt/toolbox/bin/tmux
+# DESC: tmux wrapper - use toolbox-wide XDG paths
+#
+############################################################
+
 set -Eeuo pipefail
 
 exec env \

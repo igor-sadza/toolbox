@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+
+############################################################
+# Copyright (c) 2026 Igor Sadza
+# Released under the GPLv3 license
+# ----------------------------------------------------------
+#
+# FILE: ./build/rootfs/opt/toolbox/bin/cheat
+# DESC: Show the toolbox cheatsheet
+# USAGE: cheat            full cheatsheet (less)
+#        cheat <topic>    matching sections only (e.g. git, tmux, ai)
+#
+############################################################
+
+set -Eeuo pipefail
+
+CHEATSHEET="${TOOLBOX_ROOT:-/opt/toolbox}/doc/cheatsheet.md"
+
+[[ -r "${CHEATSHEET}" ]] || {
+    echo "cheat: ${CHEATSHEET} not found" >&2
+    exit 1
+}
+
+# Drop the HTML comment header and check markers.
+content() {
+    sed -e '/^<!---/,/^--->/d' -e '/^<!-- \/\{0,1\}keymaps:check -->/d' "${CHEATSHEET}"
+}
+
+if (( $# == 0 )); then
+    content | less -R
+    exit 0
+fi
+
+# Sections ('## ...') whose heading matches the topic;
+# if none, sections whose body mentions it.
+sections() {
+    content | awk -v topic="$1" -v field="$2" '
+        BEGIN { topic = tolower(topic) }
+        function flush() {
+            if (heading != "" && index(tolower(field == "heading" ? heading : body), topic))
+                printf "%s\n", body
+        }
+        /^## / { flush(); heading = $0; body = "" }
+        heading != "" { body = body $0 "\n" }
+        END { flush() }
+    '
+}
+
+matches="$(sections "$*" heading)"
+[[ -n "${matches}" ]] || matches="$(sections "$*" body)"
+
+if [[ -z "${matches}" ]]; then
+    echo "cheat: no section matches '$*'" >&2
+    exit 1
+fi
+
+printf '%s\n' "${matches}"

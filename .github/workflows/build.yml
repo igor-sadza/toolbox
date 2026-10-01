@@ -1,110 +1,282 @@
+############################################################
+# Copyright (c) 2026 Igor Sadza
+# Released under the GPLv3 license
+# ----------------------------------------------------------
+#
+# FILE: ./.github/workflows/build.yml
+# DESC: Build, test and publish the toolbox image (GHCR)
+#
+# ----------------------------------------------------------
+#  Trigger              | Publishes
+#  ---------------------+------------------------------------
+#  pull_request         | nothing (build + test only)
+#  push: develop        | :edge, :edge-<sha>
+#  workflow_call        | :X.Y.Z, :X.Y, :X, :latest (release)
+#  schedule (weekly)    | :weekly, :weekly-YYYYMMDD
+#                       |   (latest release + Debian updates)
+#  workflow_dispatch    | optional custom tag
+#
+############################################################
+
 name: "build"
+
+# ============================
+# Dispatchers
+# ============================
+
+on:
+  pull_request:
+    branches:
+      - develop
+
+  push:
+    branches:
+      - develop
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.media/**'
+
+  schedule:
+    # Mondays 04:00 UTC
+    - cron: '0 4 * * 1'
+
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Extra image tag to publish (empty = build + test only)"
+        required: false
+        default: ''
+
+  workflow_call:
+    inputs:
+      version:
+        description: "Release version (X.Y.Z) to build and publish"
+        required: true
+        type: string
+    secrets:
+      WORKFLOW_TOKEN:
+        required: true
 
 # ============================
 # Parameters
 # ============================
 
-
-
-# ============================
-# Dispatchers 
-# ============================
-on:
-  push:
-    tags:
-      - '*'
-
-  workflow_dispatch:
+env:
+  IMAGE_NAME: ghcr.io/igor-sadza/toolbox
+  TEST_IMAGE: toolbox:ci
 
 # ============================
 # Repo permissions
 # ============================
 
 permissions:
-  contents: write
+  contents: read
   packages: write
 
+concurrency:
+  group: build-${{ github.event_name }}-${{ inputs.version || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 # ============================
-# Jobs 
+# Jobs
 # ============================
 
 jobs:
 
 # ------------------------------------------------------------
-#     ___       _ __   _____           __          
+#     ___       _ __   _____           __
 #    / _ )__ __(_) /__/ / _ \___  ____/ /_____ ____
 #   / _  / // / / / _  / // / _ \/ __/  '_/ -_) __/
-#  /____/\_,_/_/_/\_,_/____/\___/\__/_/\_\\__/_/   
+#  /____/\_,_/_/_/\_,_/____/\___/\__/_/\_\\__/_/
 
   BuildDocker:
     name: "Build Docker"
     runs-on: ubuntu-latest
-    permissions:
-      contents: write 
-      packages: write
+    timeout-minutes: 120
     steps:
 
-      - uses: actions/checkout@v4
+      # --------------------------------------------
+      # Resolve what to build and where to publish
+      # --------------------------------------------
+
+      - name: 'Resolve mode'
+        id: mode
+        shell: bash
+        env:
+          EVENT:       ${{ github.event_name }}
+          VERSION:     ${{ inputs.version }}
+          CUSTOM_TAG:  ${{ inputs.tag }}
+          SHA:         ${{ github.sha }}
+        run: |
+          set -Eeuo pipefail
+          ref=""; tags=(); upgrade="false"; publish="false"
+
+          # Reusable calls inherit the caller's event name,
+          # so a release is detected by the version input.
+          [[ -n "${VERSION}" ]] && EVENT="release"
+
+          case "${EVENT}" in
+            release)
+              ref="v${VERSION}"
+              IFS=. read -r major minor _ <<< "${VERSION}"
+              tags=("${VERSION}" "${major}.${minor}" "${major}" "latest")
+              ;;
+            schedule)
+              ref="@latest-release"
+              upgrade="true"
+              tags=("weekly" "weekly-$(date -u +%Y%m%d)")
+              ;;
+            push)
+              tags=("edge" "edge-${SHA::7}")
+              ;;
+            workflow_dispatch)
+              [[ -n "${CUSTOM_TAG}" ]] && tags=("${CUSTOM_TAG}")
+              ;;
+          esac
+
+          (( ${#tags[@]} > 0 )) && publish="true"
+
+          {
+            echo "ref=${ref}"
+            echo "upgrade=${upgrade}"
+            echo "publish=${publish}"
+            echo "tags<<EOF"
+            for t in "${tags[@]}"; do echo "${IMAGE_NAME}:${t}"; done
+            echo "EOF"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: 'Checkout'
+        if: ${{ !startsWith(steps.mode.outputs.ref, 'v') }}
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - name: 'Find Dockerfile'
-        id: dockerfile_find
+      - name: 'Checkout release tag'
+        if: ${{ startsWith(steps.mode.outputs.ref, 'v') }}
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ steps.mode.outputs.ref }}
+
+      - name: 'Checkout latest release (weekly)'
+        if: steps.mode.outputs.ref == '@latest-release'
         shell: bash
         run: |
-          DOCKERFILE_PATH=$(find "${PWD}/build" -name "Dockerfile" -print -quit);
-
-          # If no Dockerfile is found, exit with an error
-          if [ -z "${DOCKERFILE_PATH}" ]; then
-            echo "No Dockerfile found in the repository."
-            exit 1
+          set -Eeuo pipefail
+          latest="$(git tag --list 'v*' --sort=-v:refname | head -n1)"
+          if [[ -n "${latest}" ]]; then
+            echo "Weekly rebuild of ${latest}"
+            git checkout --quiet "${latest}"
+          else
+            echo "No release tag yet - weekly rebuild of $(git rev-parse --short HEAD)"
           fi
 
-          echo "DOCKERFILE_PATH=${DOCKERFILE_PATH}" >> $GITHUB_OUTPUT
-          echo "DOCKERFILE_CONTEXT=$(dirname ${DOCKERFILE_PATH})" >> $GITHUB_OUTPUT
+      # --------------------------------------------
+      # Lint
+      # --------------------------------------------
 
       - name: 'Lint Dockerfile'
         shell: bash
         run: |
-          docker run --rm -i -e \
-            HADOLINT_IGNORE=DL3008,DL4006,SC2086,DL3003,SC1008,SC2174 \
-            hadolint/hadolint < ${{ steps.dockerfile_find.outputs.DOCKERFILE_PATH }}
+          docker run --rm -i \
+            hadolint/hadolint:v2.15.1 \
+            hadolint \
+              --ignore DL3008 \
+              --ignore DL4006 \
+              --ignore SC2086 \
+              --ignore DL3003 \
+              --ignore SC1008 \
+              --ignore SC2174 \
+              - < build/Dockerfile
 
-      - name: 'Extract Repository Metadata'
-        id: repository_metadata
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository }}
+      - name: 'Scan repository for secrets'
+        shell: bash
+        run: |
+          docker run --rm \
+            -v "${PWD}:/repo" \
+            ghcr.io/gitleaks/gitleaks:v8.30.1 \
+            git /repo \
+              --log-opts=HEAD \
+              --redact \
+              --verbose
+
+      # --------------------------------------------
+      # Build
+      # --------------------------------------------
 
       - name: 'Extract Build Arguments'
         id: build_arguments
         shell: bash
+        env:
+          UPGRADE: ${{ steps.mode.outputs.upgrade }}
         run: |
-          buildargs=()
-          while IFS= read -r line; do
-            key="$(echo "$line" | sed 's/=.*//g')"
-            val="$(echo "$line" | sed 's/.*=//g')"
-            buildargs+=(--build-arg ${key}=${val})
-          done < <(grep -vE '^[[:space:]]*(#|$)' .env)
-          echo "BUILD_ARGS=$(echo "${buildargs[@]}")" >> $GITHUB_OUTPUT
+          set -Eeuo pipefail
+          {
+            echo "BUILD_ARGS<<EOF"
+            .cicd/github/build-args.sh .env.example
+            echo "APT_UPGRADE=${UPGRADE}"
+            echo "EOF"
+          } >> "${GITHUB_OUTPUT}"
 
-      - name: 'Docker - Tag'
-        id: docker_tag
-        shell: bash
-        run: |
-          echo "TAG_CURRENT=ghcr.io/${{ github.repository }}:${{ github.ref_name }}" >> $GITHUB_OUTPUT
-          echo "TAG_LATEST=ghcr.io/${{ github.repository }}:latest" >> $GITHUB_OUTPUT
-
-      - uses: ./.github/actions/docker/build
+      # Needs the GitHub API (repo info) - skipped under act.
+      - name: 'Extract Repository Metadata'
+        if: ${{ !env.ACT }}
+        id: repository_metadata
+        uses: docker/metadata-action@v6
         with:
+          images: ${{ env.IMAGE_NAME }}
 
-          # Required 
-          auth_token:         ${{ secrets.WORKFLOW_TOKEN }}
-          dockerfile_context: ${{ steps.dockerfile_find.outputs.DOCKERFILE_CONTEXT }} 
-          dockerfile_path:    ${{ steps.dockerfile_find.outputs.DOCKERFILE_PATH }} 
-          
-          # Optional
-          docker_build_arguments:   ${{ steps.build_arguments.outputs.BUILD_ARGS }}
-          docker_build_tag_current: ${{ steps.docker_tag.outputs.TAG_CURRENT }}
-          docker_build_tag_latest:  ${{ steps.docker_tag.outputs.TAG_LATEST }}
-          docker_build_labels:      ${{ steps.repository_metadata.outputs.json }}
+      # act: build with the host daemon (its registry / network config).
+      - uses: docker/setup-buildx-action@v4
+        with:
+          driver: ${{ env.ACT && 'docker' || 'docker-container' }}
+
+      - name: 'Build image'
+        uses: docker/build-push-action@v7
+        with:
+          context:    build
+          file:       build/Dockerfile
+          load:       true
+          push:       false
+          tags:       ${{ env.TEST_IMAGE }}
+          labels:     ${{ steps.repository_metadata.outputs.labels }}
+          build-args: ${{ steps.build_arguments.outputs.BUILD_ARGS }}
+          # No GitHub cache service under act (ACT=true) -> no gha cache.
+          cache-from: ${{ !env.ACT && 'type=gha' || '' }}
+          cache-to:   ${{ (env.ACT || steps.mode.outputs.upgrade == 'true') && '' || 'type=gha,mode=max' }}
+          no-cache:   ${{ steps.mode.outputs.upgrade == 'true' }}
+
+      # --------------------------------------------
+      # Test
+      # --------------------------------------------
+
+      - name: 'Smoke test'
+        shell: bash
+        run: .cicd/tests/smoke.sh "${TEST_IMAGE}"
+
+      # --------------------------------------------
+      # Publish
+      # --------------------------------------------
+
+      - name: 'Log in to the Container registry'
+        if: steps.mode.outputs.publish == 'true'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ vars.GHCR_USERNAME || 'igor-sadza' }}
+          password: ${{ secrets.WORKFLOW_TOKEN }}
+
+      - name: 'Push image'
+        if: steps.mode.outputs.publish == 'true'
+        shell: bash
+        env:
+          TAGS: ${{ steps.mode.outputs.tags }}
+        run: |
+          set -Eeuo pipefail
+          while IFS= read -r tag; do
+            [[ -n "${tag}" ]] || continue
+            docker tag "${TEST_IMAGE}" "${tag}"
+            docker push "${tag}"
+            echo "- \`${tag}\`" >> "${GITHUB_STEP_SUMMARY}"
+          done <<< "${TAGS}"

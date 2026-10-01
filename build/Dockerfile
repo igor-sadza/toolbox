@@ -6,7 +6,7 @@
 # ----------------------------------------------------------
 # 
 # FILE: ./build/Dockerfile
-# DESC: 
+# DESC: Toolbox image definition
 #
 ############################################################
 
@@ -30,40 +30,39 @@ ARG \
     DEBIAN_FRONTEND=noninteractive
 
 # ---------------------
-# Base: Configure Proxy (corporate needs) 
-
-ARG \
-    HTTP_PROXY="" \
-    HTTPS_PROXY=""
+# Base: Configure APT (network)
+#
+# Network hardening only (no host specific settings):
+# - HTTPS Debian sources (large packages over plain HTTP are
+#   fragile on filtering networks)
+# - no pipelining, retries, longer timeouts
 
 RUN \
-    echo "**** Base: Configure Corporate Proxy ****" \
+    echo "**** Base: Configure APT (network) ****" \
     && \
-    echo "Configure APT for the corporate proxy" \
+    echo "**** Retries & timeouts ****" \
         && printf '%s\n' \
-          "Acquire::http::Proxy \"${HTTP_PROXY}\";" \
-          "Acquire::https::Proxy \"${HTTPS_PROXY}\";" \
-          'Acquire::http::Pipeline-Depth "0";' \
-          'Acquire::https::Pipeline-Depth "0";' \
-          'Acquire::Retries "2";' \
-          'Acquire::http::Timeout "60";' \
-          'Acquire::https::Timeout "180";' \
-          > /etc/apt/apt.conf.d/80-corporate-proxy \
+            'Acquire::http::Pipeline-Depth "0";' \
+            'Acquire::https::Pipeline-Depth "0";' \
+            'Acquire::Retries "5";' \
+            'Acquire::http::Timeout "60";' \
+            'Acquire::https::Timeout "180";' \
+            > /etc/apt/apt.conf.d/80-network \
     && \
-    echo "Bootstrap or repair the CA bundle over the original HTTP source" \
+    echo "**** Bootstrap CA bundle (over the original HTTP source) ****" \
         && if ! test -s /etc/ssl/certs/ca-certificates.crt; \
            then \
-           echo "Bootstrap or repair the CA bundle over the original HTTP source" \
-             && apt-get update \
-             && apt-get install --reinstall -y --no-install-recommends ca-certificates \
+             apt-get update \
+             && apt-get install --reinstall --no-install-recommends -y \
+                 ca-certificates \
              && update-ca-certificates --fresh; \
            fi \
         && test -s /etc/ssl/certs/ca-certificates.crt \
     && \
-    echo "Use HTTPS for Debian downloads, especially larger packages" \
+    echo "**** Use HTTPS Debian sources ****" \
         && sed -i \
-          's|http://deb.debian.org|https://deb.debian.org|g' \
-          /etc/apt/sources.list.d/debian.sources \
+            's|http://deb.debian.org|https://deb.debian.org|g' \
+            /etc/apt/sources.list.d/debian.sources \
     && \
     echo "**** Section cleanup ****" \
         && rm -rf \
@@ -115,6 +114,32 @@ RUN \
             /var/tmp/* \
             /tmp/*
 
+# ---------------------
+# Base: Security updates (optional)
+#
+# Pinned base digest = reproducible. The weekly CI build sets
+# APT_UPGRADE=true to pull the latest Debian security fixes.
+
+ARG \
+    APT_UPGRADE="false"
+
+RUN \
+    echo "**** Base: Security updates | Enabled: ${APT_UPGRADE} ****" \
+    && \
+    if [ "${APT_UPGRADE}" = "true" ]; \
+    then \
+    echo "**** Upgrading ****" \
+        && apt-get update \
+        && apt-get upgrade -y --no-install-recommends \
+    && \
+    echo "**** Section cleanup ****" \
+        && apt-get clean autoclean -y \
+        && rm -rf \
+            /var/lib/apt/lists/* \
+            /var/tmp/* \
+            /tmp/*; \
+    fi
+
 # =============================================================================
 # : Core
 # =============================================================================
@@ -124,7 +149,8 @@ RUN \
 
 ARG \
     INSTALL_NEOVIM="false" \
-    NEOVIM_VERSION="latest"
+    NEOVIM_VERSION="" \
+    NEOVIM_SHA256=""
 
 RUN \
     echo "**** Core: Install Neovim | Version: ${NEOVIM_VERSION} ****" \
@@ -134,36 +160,19 @@ RUN \
     echo "**** Prepare ****" \
         && apt-get update \
         && apt-get install --no-install-recommends -y \
+            ca-certificates \
             curl \
-            jq \
     && \
-    echo "**** Fetching Release URL ****" \
-        && API_URL="https://api.github.com/repos/neovim/neovim" \
-        && if [ "$NEOVIM_VERSION" = "latest" ]; then \
-              NEOVIM_VERSION="$(\
-              curl -fsSL \
-              ${API_URL}/releases/latest | jq -r .tag_name \
-              )"; \
-           fi \
-        && RELEASE_URL="$( \
-               curl -fsSL \
-               "${API_URL}/releases?per_page=100" | \
-               jq -r --arg VERSION "${NEOVIM_VERSION}" \
-               '.[] \
-               | select( \
-                   .tag_name == $VERSION \
-               ) \
-               | .assets[] \
-               | select( \
-                   .browser_download_url \
-                   | contains("nvim-linux-x86_64") \
-                     and endswith(".tar.gz") \
-               ) \
-               | .browser_download_url' \
-           )" \
+    echo "**** Fetching Release ****" \
+        && : "${NEOVIM_VERSION:?NEOVIM_VERSION is required}" \
+        && : "${NEOVIM_SHA256:?NEOVIM_SHA256 is required}" \
+        && RELEASE_URL="https://github.com/neovim/neovim/releases/download/${NEOVIM_VERSION}/nvim-linux-x86_64.tar.gz" \
+        && curl -o /tmp/nvim.tar.gz -fsSL "${RELEASE_URL}" \
+    && \
+    echo "**** Verifying Checksum ****" \
+        && printf '%s  %s\n' "${NEOVIM_SHA256}" /tmp/nvim.tar.gz | sha256sum -c - \
     && \
     echo "**** Installing Release ****" \
-        && curl -o /tmp/nvim.tar.gz -fsSL "${RELEASE_URL}" \
         && mkdir -p /opt/neovim \
         && tar -xzf /tmp/nvim.tar.gz \
             --strip-components=1 \
@@ -186,7 +195,6 @@ RUN \
 
 ARG \
     INSTALL_DOCKER="false" \
-    DOCKER_GID=109 \
     DOCKER_CE_VERSION="" \
     DOCKER_CE_CLI_VERSION="" \
     CONTAINERD_VERSION="" \
@@ -243,7 +251,8 @@ RUN \
 
 ARG \
     INSTALL_K9S="false" \
-    K9S_VERSION="latest"
+    K9S_VERSION="" \
+    K9S_SHA256=""
 
 RUN \
     echo "**** Core: Install K9S | Version: ${K9S_VERSION} ****" \
@@ -253,42 +262,26 @@ RUN \
     echo "**** Prepare ****" \
         && apt-get update \
         && apt-get install --no-install-recommends -y \
+            ca-certificates \
             curl \
-            jq \
     && \
-    echo "**** Fetching Release URL ****" \
-        && API_URL="https://api.github.com/repos/derailed/k9s" \
-        && if [ "$K9S_VERSION" = "latest" ]; then \
-              K9S_VERSION="$(\
-                curl -fsSL \
-		${API_URL}/releases/latest | jq -r .tag_name \
-              )"; \
-           fi \
-        && RELEASE_URL="$( \
-           curl -fsSL \
-             "${API_URL}/releases?per_page=100" | \
-           jq -r --arg VERSION "${K9S_VERSION}" \
-             '.[] \
-             | select( \
-                 .tag_name == $VERSION \
-             ) \
-             | .assets[] \
-             | select( \
-                 .browser_download_url \
-                 | contains("Linux_amd64") \
-                   and endswith(".tar.gz") \
-             ) \
-             | .browser_download_url' \
-           )" \
+    echo "**** Fetching Release ****" \
+        && : "${K9S_VERSION:?K9S_VERSION is required}" \
+        && : "${K9S_SHA256:?K9S_SHA256 is required}" \
+        && RELEASE_URL="https://github.com/derailed/k9s/releases/download/${K9S_VERSION}/k9s_Linux_amd64.tar.gz" \
+        && curl -o /tmp/k9s.tar.gz -fsSL "${RELEASE_URL}" \
+    && \
+    echo "**** Verifying Checksum ****" \
+        && printf '%s  %s\n' "${K9S_SHA256}" /tmp/k9s.tar.gz | sha256sum -c - \
     && \
     echo "**** Installing Release ****" \
-        && curl -o /tmp/k9s.tar.gz -fsSL "${RELEASE_URL}" \
-        && tar -xzf /tmp/k9s.tar.gz -C /opt \
-        && ls /opt \
+        && mkdir -p /opt/k9s \
+        && tar -xzf /tmp/k9s.tar.gz \
+            --directory=/opt/k9s \
         && ln -sf \
-            /opt/k9s \
+            /opt/k9s/k9s \
             /usr/local/bin/k9s \
-        && k9s version \
+        && k9s version --short \
     && \
     echo "**** Section cleanup ****" \
         && apt-get clean autoclean -y \
@@ -529,150 +522,138 @@ RUN \
     fi
 
 # -----------------------------------------------
-# Core: Install Gomplate 
+# Core: Gomplate (BIN)
 
 ARG \
     INSTALL_GOMPLATE="false" \
-    GOMPLATE_VERSION=""
+    GOMPLATE_VERSION="" \
+    GOMPLATE_SHA256=""
 
 RUN \
-    echo "**** Core: Install Gomplate | Version: latest ****" \
+    echo "**** Core: Install Gomplate | Version: ${GOMPLATE_VERSION} ****" \
     && \
     if [ "${INSTALL_GOMPLATE}" = "true" ]; \
     then \
-        echo "**** Prepare ****" \
-            && apt-get update \
-            && apt-get install --no-install-recommends -y \
-               curl \
-               jq \
-        && \
-        echo "**** Installation ****" \
-            && ARCHITECTURE="$(dpkg --print-architecture)" \
-            && API_URL="https://api.github.com/repos/hairyhenderson/gomplate" \
-            && BIN_RELEASE_URL="$( \
-                curl -fsSL \
-                  "${API_URL}/releases/latest" | \
-                jq -r \
-                  --arg ARCHITECTURE "${ARCHITECTURE}" \
-                  '.assets[] \
-                  | select( \
-                    .name \
-                    | contains("linux") \
-                      and contains($ARCHITECTURE) \
-                  ) \
-                  | .browser_download_url' \
-               )" \
-            && curl -o gomplate -fsSL "${BIN_RELEASE_URL}" \
-            && chmod +x gomplate \
-            && mv gomplate /usr/bin/gomplate \
-        && \
-        echo "**** Cleanup ****" \
-            && apt-get clean autoclean -y \
-            && apt-get autoremove -y \
-            && rm -rf \
-                /var/lib/apt/lists/* \
-                /var/tmp/* \
-                /tmp/*; \
+    echo "**** Prepare ****" \
+        && apt-get update \
+        && apt-get install --no-install-recommends -y \
+            ca-certificates \
+            curl \
+    && \
+    echo "**** Fetching Release ****" \
+        && : "${GOMPLATE_VERSION:?GOMPLATE_VERSION is required}" \
+        && : "${GOMPLATE_SHA256:?GOMPLATE_SHA256 is required}" \
+        && RELEASE_URL="https://github.com/hairyhenderson/gomplate/releases/download/${GOMPLATE_VERSION}/gomplate_linux-amd64" \
+        && curl -o /tmp/gomplate -fsSL "${RELEASE_URL}" \
+    && \
+    echo "**** Verifying Checksum ****" \
+        && printf '%s  %s\n' "${GOMPLATE_SHA256}" /tmp/gomplate | sha256sum -c - \
+    && \
+    echo "**** Installing Release ****" \
+        && install -m 0755 /tmp/gomplate /usr/local/bin/gomplate \
+        && gomplate --version \
+    && \
+    echo "**** Section cleanup ****" \
+        && apt-get clean autoclean -y \
+        && apt-get autoremove -y \
+        && rm -rf \
+            /var/lib/apt/lists/* \
+            /var/tmp/* \
+            /tmp/*; \
     fi
 
 # -----------------------------------------------
-# Core: Install ACT 
+# Core: ACT (BIN)
 
 ARG \
     INSTALL_ACT="false" \
-    ACT_VERSION=""
+    ACT_VERSION="" \
+    ACT_SHA256=""
 
 RUN \
-    echo "**** Core: Install ACT | Version: latest ****" \
+    echo "**** Core: Install ACT | Version: ${ACT_VERSION} ****" \
     && \
-    if [ "${INSTALL_GOMPLATE}" = "true" ]; \
+    if [ "${INSTALL_ACT}" = "true" ]; \
     then \
-      echo "**** Prepare ****" \
-          && apt-get update \
-          && apt-get install --no-install-recommends -y \
-             curl \
-             jq \
-      && \
-      echo "**** Installation ****" \
-          && ARCHITECTURE="x86_64" \
-          && API_URL="https://api.github.com/repos/nektos/act" \
-          && RELEASE_URL="$( \
-	       curl -fsSL \
-               "${API_URL}/releases/latest" | \
-             jq -r \
-               --arg ARCHITECTURE "${ARCHITECTURE}" \
-               '.assets[] \
-               | select( \
-                 .name \
-                 | contains("Linux_x86_64") \
-                   and contains($ARCHITECTURE) \
-               ) \
-               | .browser_download_url' \
-             )" \
-          && curl -o /tmp/act.tar.gz -fsSL "${RELEASE_URL}" \
-          && mkdir -p /opt/act \
-          && tar -xzf /tmp/act.tar.gz \
-              --directory=/opt/act \
-          && chmod +x /opt/act/act \
-          && ln -sf /opt/act/act /usr/local/bin/act \
-          && act --version \
-      && \
-      echo "**** Cleanup ****" \
-          && apt-get clean autoclean -y \
-          && apt-get autoremove -y \
-          && rm -rf \
-              /var/lib/apt/lists/* \
-              /var/tmp/* \
-              /tmp/*; \
+    echo "**** Prepare ****" \
+        && apt-get update \
+        && apt-get install --no-install-recommends -y \
+            ca-certificates \
+            curl \
+    && \
+    echo "**** Fetching Release ****" \
+        && : "${ACT_VERSION:?ACT_VERSION is required}" \
+        && : "${ACT_SHA256:?ACT_SHA256 is required}" \
+        && RELEASE_URL="https://github.com/nektos/act/releases/download/${ACT_VERSION}/act_Linux_x86_64.tar.gz" \
+        && curl -o /tmp/act.tar.gz -fsSL "${RELEASE_URL}" \
+    && \
+    echo "**** Verifying Checksum ****" \
+        && printf '%s  %s\n' "${ACT_SHA256}" /tmp/act.tar.gz | sha256sum -c - \
+    && \
+    echo "**** Installing Release ****" \
+        && mkdir -p /opt/act \
+        && tar -xzf /tmp/act.tar.gz \
+            --directory=/opt/act \
+        && ln -sf \
+            /opt/act/act \
+            /usr/local/bin/act \
+        && act --version \
+    && \
+    echo "**** Section cleanup ****" \
+        && apt-get clean autoclean -y \
+        && apt-get autoremove -y \
+        && rm -rf \
+            /var/lib/apt/lists/* \
+            /var/tmp/* \
+            /tmp/*; \
     fi
 
 # -----------------------------------------------
-# Core: Miscellaneous
-#
+# Core: Miscellaneous (APT)
 
 RUN \
-    echo "**** Core: Miscellaneous (apt) ****" \
+    echo "**** Core: Install Miscellaneous (apt) ****" \
     && \
-    echo "**** Install extra apt packages ****" \
-      && apt-get update \
-      && apt-get install -y --no-install-recommends \
-          socat \
-          dnsutils \
-          bash-completion \
-          git \
-          tmux \
-          lua5.1 \
-          luarocks \
-          golang \
-          ripgrep \
-          fd-find \
-          libicu76 \
-          pipx \
-          python3 \
-          build-essential \
-          file \
-          sqlite3 \
-          rustup \
-          libclang-dev \
-          clang \
-          supervisor \
-          liquidprompt \
-          ncurses-bin \
-          figlet \
-          lolcat \
-          boxes \
-          python3-pip \
-          tree \
-          iputils-ping \
-          acl \
-          ssh \
-          nfs-common \
-          netcat-openbsd \
+    echo "**** Installing ****" \
+        && apt-get update \
+        && apt-get install --no-install-recommends -y \
+            socat \
+            dnsutils \
+            bash-completion \
+            git \
+            tmux \
+            lua5.1 \
+            luarocks \
+            golang \
+            ripgrep \
+            fd-find \
+            libicu76 \
+            pipx \
+            python3 \
+            build-essential \
+            file \
+            sqlite3 \
+            rustup \
+            libclang-dev \
+            clang \
+            supervisor \
+            liquidprompt \
+            ncurses-bin \
+            figlet \
+            lolcat \
+            boxes \
+            python3-pip \
+            tree \
+            iputils-ping \
+            acl \
+            ssh \
+            nfs-common \
+            fuse3 \
+            sshfs \
+            rclone \
+            netcat-openbsd \
     && \
-    echo "**** Extra Config ****" \
-       && git config --global credential.helper store \
-    && \
-    echo "**** Cleanup ****" \
+    echo "**** Section cleanup ****" \
         && apt-get clean autoclean -y \
         && apt-get autoremove -y \
         && rm -rf \
@@ -764,7 +745,6 @@ ENV \
 # -----------------------------------------------
 
 ENV \
-    LOCAL_RCFILE=${TOOLBOX_CONFIG}/liquidpromptrc \
     LIQUIDPROMPT_THEME=powerline
 
 # -----------------------------------------------
@@ -805,28 +785,8 @@ RUN \
         -m 0755 \
         "${TOOLBOX_ROOT}" \
         "${TOOLBOX_CONFIG}" \
-        "${TOOLBOX_RUNTIME_ROOT}"; \
-    \
-    echo "**** Postflight: Create shared workspace targets ****" \
-    && install \
-        -d \
-        -o root \
-        -g toolbox-shared \
-        -m 2775 \
-        "${TOOLBOX_DATA}" \
-        "${TOOLBOX_STATE}" \
-        "${TOOLBOX_CACHE}" \
-        "${TOOLBOX_BIN}" \
-        "${NPM_CONFIG_CACHE}" \
-        "${GOPATH}" \
-        "${GOCACHE}" \
-        "${GOMODCACHE}" \
-        "${CARGO_HOME}" \
-        "${CARGO_TARGET_DIR}" \
-        "${RUSTUP_HOME}" \
-        "${UV_TOOL_DIR}" \
-        "${UV_CACHE_DIR}"; \
-    \
+        "${TOOLBOX_RUNTIME_ROOT}" \
+    && \
     echo "**** Postflight: Create shared workspace targets ****" \
     && install \
         -d \
@@ -869,40 +829,55 @@ RUN \
 # -----------------------------------------------
 
 ARG \
-    CARGO_TREE_SITTER_CLI=0.26.11 \
-    NPM_NEOVIM=5.4.0 \
-    NPM_OPENCODE_AI=1.18.13 \
-    PIPX_UV=0.12.1 \
-    NPM_CODEX=0.153.4
-
-# ---------------------
-# Base: Proxy config 
+    RUST_TOOLCHAIN="" \
+    CARGO_TREE_SITTER_CLI="" \
+    NPM_NEOVIM="" \
+    NPM_OPENCODE_AI="" \
+    NPM_CODEX="" \
+    PIPX_UV=""
 
 RUN \
-    echo "**** Core: Miscellaneous (npm / cargo / pipx) ****" \
+    echo "**** Postflight: Install extra packages (pipx / npm / cargo) ****" \
     && umask 0002 \
-    && echo "**** Install extra Python packages ****" \
-    && pipx install \
-        --global \
-        "uv${PIPX_UV:+==${PIPX_UV}}" \
-    && if [ "${INSTALL_NODE_JS}" = "true" ]; then \
-        echo "**** Install extra Node packages ****" \
-        && npm install \
+    && \
+    echo "**** Install extra Python packages ****" \
+        && : "${PIPX_UV:?PIPX_UV is required}" \
+        && pipx install \
             --global \
-            "opencode-ai@${NPM_OPENCODE_AI}" \
-            "neovim@${NPM_NEOVIM}" \
-	    "@openai/codex@${NPM_CODEX}" \
-        && npm cache clean --force; \
-    fi \
-    && echo "**** Install extra Cargo packages ****" \
-    && rustup default stable \
-    && cargo install \
-        tree-sitter-cli \
-        --locked \
-        --root /usr/local \
-        ${CARGO_TREE_SITTER_CLI:+--version=${CARGO_TREE_SITTER_CLI}} \
-    && echo "**** Clean installation caches ****" \
-    && python3 -m pip cache purge
+            "uv==${PIPX_UV}" \
+    && \
+    echo "**** Install extra Node packages ****" \
+        && if [ "${INSTALL_NODE_JS}" = "true" ]; \
+           then \
+             : "${NPM_OPENCODE_AI:?NPM_OPENCODE_AI is required}" \
+             && : "${NPM_NEOVIM:?NPM_NEOVIM is required}" \
+             && : "${NPM_CODEX:?NPM_CODEX is required}" \
+             && npm install \
+                 --global \
+                 "opencode-ai@${NPM_OPENCODE_AI}" \
+                 "neovim@${NPM_NEOVIM}" \
+                 "@openai/codex@${NPM_CODEX}" \
+             && npm cache clean --force; \
+           fi \
+    && \
+    echo "**** Install Rust toolchain | Version: ${RUST_TOOLCHAIN} ****" \
+        && : "${RUST_TOOLCHAIN:?RUST_TOOLCHAIN is required}" \
+        && rustup toolchain install \
+            "${RUST_TOOLCHAIN}" \
+            --profile minimal \
+        && rustup default "${RUST_TOOLCHAIN}" \
+    && \
+    echo "**** Install extra Cargo packages ****" \
+        && : "${CARGO_TREE_SITTER_CLI:?CARGO_TREE_SITTER_CLI is required}" \
+        && cargo install \
+            tree-sitter-cli \
+            --locked \
+            --root /usr/local \
+            --version "${CARGO_TREE_SITTER_CLI}" \
+    && \
+    echo "**** Section cleanup ****" \
+        && python3 -m pip cache purge \
+        && rm -rf -- "${CARGO_HOME:?}/registry" "${CARGO_HOME:?}/git"
 
 # -----------------------------------------------
 # Postflight: Copy overlays
@@ -912,35 +887,66 @@ COPY \
     rootfs/ /
 
 # -----------------------------------------------
-# Postflight: Configure overlay permissions
+# Postflight: Configure overlay
 # -----------------------------------------------
 
+# hadolint ignore=SC2016
 RUN \
-    chmod 0755 \
-        /entrypoint.sh \
-        /usr/bin/toolbox.sh
+    echo "**** Postflight: Configure overlay ****" \
+    && \
+    echo "**** Executable permissions ****" \
+        && chmod 0755 \
+            /entrypoint.sh \
+            /usr/bin/toolbox.sh \
+            "${TOOLBOX_BIN}/vi" \
+            "${TOOLBOX_BIN}/tmux" \
+            "${TOOLBOX_BIN}/cheat" \
+    && \
+    echo "**** Load /etc/bash.bashrc.d fragments ****" \
+        && printf '%s\n' \
+            '' \
+            '# BEGIN bash.bashrc.d loader' \
+            '# Load global interactive Bash configuration fragments.' \
+            'if [[ $- == *i* ]] && [[ -d /etc/bash.bashrc.d ]]; then' \
+            '    for file in /etc/bash.bashrc.d/*.sh; do' \
+            '        [[ -r "${file}" ]] && source "${file}"' \
+            '    done' \
+            '    unset file' \
+            'fi' \
+            '# END bash.bashrc.d loader' \
+            >> /etc/bash.bashrc \
+    && \
+    echo "**** Passwordless sudo ****" \
+        && printf '%s\n' \
+            '%sudo ALL=(ALL:ALL) NOPASSWD: ALL' \
+            > /etc/sudoers.d/toolbox \
+        && chmod 0440 /etc/sudoers.d/toolbox \
+        && visudo -q -cf /etc/sudoers.d/toolbox
 
 # -----------------------------------------------
 # Postflight: Install Neovim plugins
 # -----------------------------------------------
 
 RUN \
-    echo "**** Fetch Neovim Plugins | ${INSTALL_NEOVIM} ****" \
+    echo "**** Postflight: Install Neovim plugins | ${INSTALL_NEOVIM} ****" \
     && umask 0002 \
-    && if [ "${INSTALL_NEOVIM}" = "true" ]; then \
-        echo "**** Fetch Neovim Plugins ****" \
-            && export XDG_CONFIG_HOME="${TOOLBOX_CONFIG}" \
-            && export XDG_DATA_HOME="${TOOLBOX_DATA}" \
-            && export XDG_STATE_HOME="${TOOLBOX_STATE}" \
-            && export XDG_CACHE_HOME="${TOOLBOX_CACHE}" \
-            && /usr/local/bin/vi \
-                --headless \
-                "+Lazy! sync" \
-                "+MasonToolsInstallSync" \
-                +qa \
-        && \
-        echo "**** Clean Neovim cache ****" \
-            && rm -rf -- "${TOOLBOX_CACHE:?}/nvim"; \
+    && \
+    if [ "${INSTALL_NEOVIM}" = "true" ]; \
+    then \
+    echo "**** Restore plugins (lazy-lock.json), Mason tools, Treesitter parsers ****" \
+        && export XDG_CONFIG_HOME="${TOOLBOX_CONFIG}" \
+        && export XDG_DATA_HOME="${TOOLBOX_DATA}" \
+        && export XDG_STATE_HOME="${TOOLBOX_STATE}" \
+        && export XDG_CACHE_HOME="${TOOLBOX_CACHE}" \
+        && /usr/local/bin/vi \
+            --headless \
+            "+Lazy! restore" \
+            "+MasonToolsInstallSync" \
+            "+lua require('nvim-treesitter').install(vim.g.toolbox_parsers):wait(600000)" \
+            +qa \
+    && \
+    echo "**** Section cleanup ****" \
+        && rm -rf -- "${TOOLBOX_CACHE:?}/nvim"; \
     fi
 
 # -----------------------------------------------
@@ -1009,3 +1015,6 @@ WORKDIR \
 
 ENTRYPOINT \
     ["/entrypoint.sh"]
+
+CMD \
+    ["sleep", "infinity"]

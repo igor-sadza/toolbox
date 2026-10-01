@@ -1,0 +1,140 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Toolbox - keep every pinned input fresh; CI (build + smoke test) gates every PR",
+  "extends": [
+    "config:recommended",
+    ":semanticCommits"
+  ],
+  "baseBranchPatterns": [
+    "develop"
+  ],
+  "timezone": "Europe/Warsaw",
+  "schedule": [
+    "* 0-5 * * 1"
+  ],
+  "prConcurrentLimit": 10,
+  "semanticCommitType": "dep",
+  "semanticCommitScope": null,
+  "labels": [
+    "dependencies"
+  ],
+  "platformAutomerge": true,
+  "enabledManagers": [
+    "custom.regex",
+    "github-actions",
+    "npm"
+  ],
+  "customManagers": [
+    {
+      "description": "Pinned versions in .env.example (# renovate: markers)",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^\\.env\\.example$/"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)(?: extractVersion=(?<extractVersion>\\S+))?(?: registryUrl=(?<registryUrl>\\S+))?\\n[A-Z0-9_]+=\"?(?<currentValue>[^\"\\s]+?)(?:-1\\.1)?\"?\\n"
+      ]
+    },
+    {
+      "description": "Debian base image digest in .env.example",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^\\.env\\.example$/"
+      ],
+      "matchStrings": [
+        "DISTRIBUTION=(?<depName>\\S+)\\nSUITE=(?<currentValue>\\S+)\\nDIGEST=(?<currentDigest>sha256:[a-f0-9]+)"
+      ],
+      "datasourceTemplate": "docker"
+    },
+    {
+      "description": "Lint/scan container images used in workflows",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/.+\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "(?<depName>hadolint/hadolint|ghcr\\.io/gitleaks/gitleaks|rhysd/actionlint):(?<currentValue>v?[0-9][0-9.]*)"
+      ],
+      "datasourceTemplate": "docker"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "npm in package.json = semantic-release tooling only",
+      "matchManagers": [
+        "npm"
+      ],
+      "semanticCommitType": "cicd",
+      "groupName": "semantic-release",
+      "automerge": true
+    },
+    {
+      "description": "GitHub Actions",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "semanticCommitType": "cicd",
+      "automerge": true
+    },
+    {
+      "description": "Docker engine packages move together (majors; non-majors ride the weekly group)",
+      "matchPackageNames": [
+        "docker-ce",
+        "docker-ce-cli",
+        "containerd.io",
+        "docker-buildx-plugin",
+        "docker-compose-plugin"
+      ],
+      "groupName": "docker engine",
+      "matchUpdateTypes": [
+        "major"
+      ]
+    },
+    {
+      "description": "Patch / minor / digest -> automerge once CI is green",
+      "matchUpdateTypes": [
+        "patch",
+        "minor",
+        "digest"
+      ],
+      "automerge": true
+    },
+    {
+      "description": "Majors always need a human",
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "automerge": false,
+      "labels": [
+        "dependencies",
+        "major"
+      ]
+    },
+    {
+      "description": "kubectl: keep client within cluster skew - minors need review",
+      "matchPackageNames": [
+        "kubernetes/kubernetes"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "major"
+      ],
+      "automerge": false,
+      "groupName": "kubectl minor"
+    },
+    {
+      "description": "Rust toolchain: minor bumps are routine (6-weekly)",
+      "matchPackageNames": [
+        "rust-lang/rust"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "automerge": true
+    }
+  ],
+  "gitIgnoredAuthors": [
+    "toolbox-bot@users.noreply.github.com"
+  ]
+}
