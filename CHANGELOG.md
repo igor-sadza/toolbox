@@ -1,3 +1,9 @@
+## [1.2.2](https://github.com/igor-sadza/toolbox/compare/v1.2.1...v1.2.2) (2026-10-01)
+
+### > Fixes
+
+* correct terraform filetype discovery ([80f1fa1](https://github.com/igor-sadza/toolbox/commit/80f1fa1decaae3fe0d30447e8b396f4d35ec15f4))
+
 ## [1.2.1](https://github.com/igor-sadza/toolbox/compare/v1.2.0...v1.2.1) (2026-10-01)
 
 ### > Fixes
