@@ -27,10 +27,10 @@ services:
     volumes:
       # Host home paths are identical inside toolbox.
       # (rslave: mounts made later on the host show up here too)
-      - /home:/home:rslave
+      - /home:/home
 
       # Full host filesystem escape hatch (read-write).
-      - /:/host:rslave
+      - /:/host
 
       # Docker daemon.
       - /var/run/docker.sock:/var/run/docker.sock

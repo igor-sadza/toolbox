@@ -938,9 +938,10 @@ RUN \
         && export XDG_DATA_HOME="${TOOLBOX_DATA}" \
         && export XDG_STATE_HOME="${TOOLBOX_STATE}" \
         && export XDG_CACHE_HOME="${TOOLBOX_CACHE}" \
+        && git config --global --add safe.directory '*' \
         && /usr/local/bin/vi \
             --headless \
-            "+Lazy! restore" \
+            "+Lazy! sync" \
             "+MasonToolsInstallSync" \
             "+lua require('nvim-treesitter').install(vim.g.toolbox_parsers):wait(600000)" \
             +qa \
