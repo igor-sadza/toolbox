@@ -1,3 +1,9 @@
+## [1.2.6](https://github.com/igor-sadza/toolbox/compare/v1.2.5...v1.2.6) (2026-10-07)
+
+### > Fixes
+
+* disable host access ([30d1f7a](https://github.com/igor-sadza/toolbox/commit/30d1f7ade2f62f05042db71d34dbf5cd4f3752e3))
+
 ## [1.2.5](https://github.com/igor-sadza/toolbox/compare/v1.2.4...v1.2.5) (2026-10-07)
 
 ### > Docs
