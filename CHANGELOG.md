@@ -1,3 +1,9 @@
+## [1.2.4](https://github.com/igor-sadza/toolbox/compare/v1.2.3...v1.2.4) (2026-10-07)
+
+### > Dependencies
+
+* update neovim plugins and mason registry ([#5](https://github.com/igor-sadza/toolbox/issues/5)) ([14a551e](https://github.com/igor-sadza/toolbox/commit/14a551e409e40c7fdf16b46c23da49dba516f98f))
+
 ## [1.2.3](https://github.com/igor-sadza/toolbox/compare/v1.2.2...v1.2.3) (2026-10-06)
 
 ### > Fixes
