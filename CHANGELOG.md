@@ -1,3 +1,9 @@
+## [1.2.5](https://github.com/igor-sadza/toolbox/compare/v1.2.4...v1.2.5) (2026-10-07)
+
+### > Docs
+
+* added TODO ([9a6ef9c](https://github.com/igor-sadza/toolbox/commit/9a6ef9cbf21c24783007af99ca836f5a69f8132d))
+
 ## [1.2.4](https://github.com/igor-sadza/toolbox/compare/v1.2.3...v1.2.4) (2026-10-07)
 
 ### > Dependencies
