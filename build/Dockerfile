@@ -630,6 +630,7 @@ RUN \
             libicu76 \
             pipx \
             python3 \
+            python3-dev \
             build-essential \
             file \
             sqlite3 \
