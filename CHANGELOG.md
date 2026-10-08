@@ -1,3 +1,9 @@
+## [1.2.7](https://github.com/igor-sadza/toolbox/compare/v1.2.6...v1.2.7) (2026-10-08)
+
+### > Fixes
+
+* added package dependencies ([b084e5e](https://github.com/igor-sadza/toolbox/commit/b084e5eff8ad0b880d481ae4ee7c1abdd7636d2d))
+
 ## [1.2.6](https://github.com/igor-sadza/toolbox/compare/v1.2.5...v1.2.6) (2026-10-07)
 
 ### > Fixes
