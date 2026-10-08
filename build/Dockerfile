@@ -653,6 +653,7 @@ RUN \
             sshfs \
             rclone \
             netcat-openbsd \
+            iproute2 \
     && \
     echo "**** Section cleanup ****" \
         && apt-get clean autoclean -y \
