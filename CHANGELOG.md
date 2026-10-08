@@ -1,3 +1,27 @@
+## [1.2.6](https://github.com/igor-sadza/toolbox/compare/v1.2.5...v1.2.6) (2026-10-07)
+
+### > Fixes
+
+* disable host access ([30d1f7a](https://github.com/igor-sadza/toolbox/commit/30d1f7ade2f62f05042db71d34dbf5cd4f3752e3))
+
+## [1.2.5](https://github.com/igor-sadza/toolbox/compare/v1.2.4...v1.2.5) (2026-10-07)
+
+### > Docs
+
+* added TODO ([9a6ef9c](https://github.com/igor-sadza/toolbox/commit/9a6ef9cbf21c24783007af99ca836f5a69f8132d))
+
+## [1.2.4](https://github.com/igor-sadza/toolbox/compare/v1.2.3...v1.2.4) (2026-10-07)
+
+### > Dependencies
+
+* update neovim plugins and mason registry ([#5](https://github.com/igor-sadza/toolbox/issues/5)) ([14a551e](https://github.com/igor-sadza/toolbox/commit/14a551e409e40c7fdf16b46c23da49dba516f98f))
+
+## [1.2.3](https://github.com/igor-sadza/toolbox/compare/v1.2.2...v1.2.3) (2026-10-06)
+
+### > Fixes
+
+* add passthrough option for tmux ([84b1ea1](https://github.com/igor-sadza/toolbox/commit/84b1ea10293bbbb3cb3621f30aee4f834cef9b1d))
+
 ## [1.2.2](https://github.com/igor-sadza/toolbox/compare/v1.2.1...v1.2.2) (2026-10-01)
 
 ### > Fixes
