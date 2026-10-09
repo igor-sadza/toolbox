@@ -1,0 +1,24 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "default_agent": "plan",
+
+  "permission": {
+    "read": "allow",
+    "edit": "allow",
+    "external_directory": "ask",
+
+    "bash": {
+      "*": "allow",
+      "git push*": "ask",
+      "terraform apply*": "deny",
+      "terraform destroy*": "deny"
+    },
+
+    "atlassian_*": "ask",
+    "atlassian_jira_get_issue": "allow",
+    "atlassian_jira_search": "allow",
+    "atlassian_confluence_search": "allow",
+    "atlassian_confluence_get_page": "allow",
+    "atlassian_confluence_get_page_children": "allow"
+  }
+}

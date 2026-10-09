@@ -1,26 +1,21 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "llama.cpp/local-coder",
   "mcp": {
-    "atlassian-mms": {
+    "atlassian": {
       "type": "local",
-
       "command": [
         "uvx",
-        "--python",
-        "3.13",
         "--with",
         "atlassian-python-api==4.0.7",
         "mcp-atlassian==0.23.0"
       ],
-
       "environment": {
-        "CONFLUENCE_URL":            "{env:CONFLUENCE_URL}",
+        "CONFLUENCE_URL": "{env:CONFLUENCE_URL}",
         "CONFLUENCE_PERSONAL_TOKEN": "{env:CONFLUENCE_PERSONAL_TOKEN}",
-        "JIRA_URL":                  "{env:JIRA_URL}",
-        "JIRA_USERNAME":             "{env:JIRA_USERNAME}",
-        "JIRA_PERSONAL_TOKEN":       "{env:JIRA_PERSONAL_TOKEN}",
-        "ENABLED_TOOLS":             "jira_get_issue,jira_search,jira_update_issue,jira_create_issue,jira_add_comment,confluence_search,confluence_get_page,confluence_get_page_children,confluence_create_page,confluence_update_page"
+        "JIRA_URL": "{env:JIRA_URL}",
+        "JIRA_USERNAME": "{env:JIRA_USERNAME}",
+        "JIRA_PERSONAL_TOKEN": "{env:JIRA_PERSONAL_TOKEN}",
+        "ENABLED_TOOLS": "jira_get_issue,jira_search,jira_update_issue,jira_create_issue,jira_add_comment,confluence_search,confluence_get_page,confluence_get_page_children,confluence_create_page,confluence_update_page"
       }
     }
   }
