@@ -1,3 +1,9 @@
+## [1.4.0](https://github.com/igor-sadza/toolbox/compare/v1.3.0...v1.4.0) (2026-10-10)
+
+### > Features
+
+* added rsync package ([0878d54](https://github.com/igor-sadza/toolbox/commit/0878d54d0c7e8a70853e761fcf7bd2c60e26da8e))
+
 ## [1.3.0](https://github.com/igor-sadza/toolbox/compare/v1.2.7...v1.3.0) (2026-10-10)
 
 ### > Features
