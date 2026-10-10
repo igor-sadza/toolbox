@@ -1,3 +1,9 @@
+## [1.3.0](https://github.com/igor-sadza/toolbox/compare/v1.2.7...v1.3.0) (2026-10-10)
+
+### > Features
+
+* added tmux configuration ([888bedc](https://github.com/igor-sadza/toolbox/commit/888bedc07dcafc2963416fdb1d0082372ad4f80b))
+
 ## [1.2.7](https://github.com/igor-sadza/toolbox/compare/v1.2.6...v1.2.7) (2026-10-08)
 
 ### > Fixes
