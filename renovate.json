@@ -77,7 +77,7 @@
       "automerge": true
     },
     {
-      "description": "Docker engine packages move together (majors; non-majors ride the weekly group)",
+      "description": "Group Docker engine package major updates",
       "matchPackageNames": [
         "docker-ce",
         "docker-ce-cli",

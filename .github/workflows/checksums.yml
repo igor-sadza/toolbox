@@ -4,7 +4,7 @@
 # ----------------------------------------------------------
 #
 # FILE: ./.github/workflows/checksums.yml
-# DESC: Refresh BIN checksums + README tools table on Renovate PRs
+# DESC: Refresh BIN checksums + tools catalogue on Renovate PRs
 #
 # ----------------------------------------------------------
 #  Renovate bumps *_VERSION in .env.example but cannot know
@@ -59,19 +59,19 @@ jobs:
     - name: Update checksums
       run: .cicd/github/update-checksums.sh .env.example
 
-    - name: Update README tools table
-      run: .cicd/docs/update-readme.sh .env.example README.md
+    - name: Update tools catalogue
+      run: .cicd/docs/update-tools.sh .env.example docs/reference/tools.md
 
     - name: Commit
       shell: bash
       run: |
         set -Eeuo pipefail
-        if git diff --quiet -- .env.example README.md; then
-          echo "Checksums and README already up to date"
+        if git diff --quiet -- .env.example docs/reference/tools.md; then
+          echo "Checksums and tools catalogue already up to date"
           exit 0
         fi
         git config user.name  "toolbox-bot"
         git config user.email "toolbox-bot@users.noreply.github.com"
-        git add .env.example README.md
-        git commit -m "dep: update BIN checksums and tools table"
+        git add .env.example docs/reference/tools.md
+        git commit -m "dep: update BIN checksums and tools catalogue"
         git push

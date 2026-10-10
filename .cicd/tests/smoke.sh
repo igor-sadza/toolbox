@@ -102,42 +102,6 @@ check parsers \
      done
      echo "${n} parsers${missing:+, missing:${missing}}"; test -z "${missing}" && test "${n}" -gt 0'
 
-# Every row between keymaps:check markers must exist in the config.
-cheatsheet_output="$(
-    docker run --rm -i --entrypoint bash "${IMAGE}" -s <<'SCRIPT' 2>&1
-set -Eeuo pipefail
-sed -n '/<!-- keymaps:check -->/,/<!-- \/keymaps:check -->/p' "${TOOLBOX_ROOT}/doc/cheatsheet.md" |
-    sed -nE 's/^\| `([^`]+)` \| ([nvxi]) \|.*/\1 \2/p' > /tmp/rows
-
-cat > /tmp/check.lua <<'LUA'
-local missing, n = {}, 0
-for line in io.lines("/tmp/rows") do
-  local lhs, mode = line:match("^(%S+) (%a)$")
-  n = n + 1
-  if vim.fn.maparg(lhs, mode) == "" then
-    missing[#missing + 1] = mode .. ":" .. lhs
-  end
-end
-io.stdout:write(string.format("%d %s\n", n, table.concat(missing, " ")))
-vim.cmd("qa!")
-LUA
-
-vi --headless "+luafile /tmp/check.lua" 2>/dev/null | tail -n1
-SCRIPT
-)"
-
-read -r cheatsheet_rows cheatsheet_missing <<<"${cheatsheet_output:-0 error}"
-
-if [[ "${cheatsheet_rows}" =~ ^[0-9]+$ ]] && (( cheatsheet_rows > 0 )) && [[ -z "${cheatsheet_missing}" ]]; then
-    printf '  [ OK ] %-14s %s\n' "cheatsheet" "${cheatsheet_rows} keymaps documented and present"
-else
-    printf '  [FAIL] %-14s %s\n' "cheatsheet" "missing in config: ${cheatsheet_missing:-${cheatsheet_output}}"
-    failures=$((failures + 1))
-fi
-
-check cheat \
-    'cheat git | grep -q "Stage hunk"'
-
 # ===================================
 # Languages (filetype, treesitter, LSP attach, no errors)
 # ===================================

@@ -7,16 +7,16 @@
 # Released under the GPLv3 license
 # ----------------------------------------------------------
 #
-# FILE: ./.cicd/docs/update-readme.sh
-# DESC: Regenerate the tools table in README.md from .env.example
-# USAGE: .cicd/docs/update-readme.sh [.env.example] [README.md]
+# FILE: ./.cicd/docs/update-tools.sh
+# DESC: Regenerate the tools table in docs/reference/tools.md from .env.example
+# USAGE: .cicd/docs/update-tools.sh [.env.example] [docs/reference/tools.md]
 #
 ############################################################
 
 set -Eeuo pipefail
 
 ENV_FILE="${1:-.env.example}"
-README="${2:-README.md}"
+OUTPUT="${2:-docs/reference/tools.md}"
 
 START='<!-- tools:start -->'
 END='<!-- tools:end -->'
@@ -76,8 +76,8 @@ table="$(
 # Replace block between markers
 # ===================================
 
-grep -qF "${START}" "${README}" || {
-    echo "markers not found in ${README}" >&2
+grep -qF "${START}" "${OUTPUT}" || {
+    echo "markers not found in ${OUTPUT}" >&2
     exit 1
 }
 
@@ -87,6 +87,6 @@ TABLE="${table}" awk \
     $0 == start { print; print ENVIRON["TABLE"]; skip = 1; next }
     $0 == end   { skip = 0 }
     !skip       { print }
-' "${README}" > "${README}.tmp"
+' "${OUTPUT}" > "${OUTPUT}.tmp"
 
-mv "${README}.tmp" "${README}"
+mv "${OUTPUT}.tmp" "${OUTPUT}"

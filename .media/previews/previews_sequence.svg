@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">
-  <!-- PLACEHOLDER - replace with the final asset (see .media/README.md) -->
-  <rect width="100%" height="100%" rx="8" fill="#111111"/>
-  <rect x="4" y="4" width="592" height="392" rx="6" fill="none" stroke="#DAA520" stroke-width="2" stroke-dasharray="10 6"/>
-  <text x="50%" y="46%" fill="#DAA520" font-family="monospace" font-size="56" font-weight="bold" text-anchor="middle" dominant-baseline="middle">SEQUENCE</text>
-  <text x="50%" y="68%" fill="#888888" font-family="monospace" font-size="18" text-anchor="middle" dominant-baseline="middle">diagram placeholder - 600x400</text>
-</svg>

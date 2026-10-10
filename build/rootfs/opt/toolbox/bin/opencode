@@ -1,0 +1,90 @@
+
+#!/usr/bin/env bash
+
+############################################################
+# Copyright (c) 2026 Igor Sadza
+# Released under the GPLv3 license
+# ----------------------------------------------------------
+#
+# FILE: ./build/rootfs/opt/toolbox/bin/opencode
+# DESC: OpenCode repository sandbox
+#
+# USAGE:
+#   cd ~/Projects/my-project
+#   opencode [args...]
+#
+############################################################
+
+set -Eeuo pipefail
+
+# ===================================
+# Helpers
+# ===================================
+
+die() {
+    printf 'opencode: %s\n' "$*" >&2
+    exit 1
+}
+
+# ===================================
+# Repository
+# ===================================
+
+repo="$(git rev-parse --show-toplevel 2>/dev/null)" ||
+    die "not inside a Git repository"
+
+relative="${PWD#"${repo}"}"
+workdir="/workspace${relative}"
+
+# ===================================
+# Environment
+# ===================================
+
+image="${TOOLBOX_IMAGE:-ghcr.io/igor-sadza/toolbox}:${TOOLBOX_VERSION:-latest}"
+
+config="${TOOLBOX_CONFIG:-/opt/toolbox/config}"
+sandbox_home="/home/opencode"
+
+# Persistent OpenCode data on the host.
+data_dir="${HOME}/.local/share/opencode-sandbox"
+
+mkdir -p "${data_dir}"
+chmod 700 "${data_dir}"
+
+tty_flags=(--interactive)
+[[ -t 0 && -t 1 ]] && tty_flags+=(--tty)
+
+# ===================================
+# Sandbox
+# ===================================
+
+exec docker run \
+    --rm \
+    "${tty_flags[@]}" \
+    --user "$(id -u):$(id -g)" \
+    --cap-drop=ALL \
+    --security-opt=no-new-privileges \
+    --pids-limit=256 \
+    --memory=4g \
+    --mount "type=bind,src=${repo},dst=/workspace" \
+    --mount "type=bind,src=${data_dir},dst=${sandbox_home}" \
+    --workdir "${workdir}" \
+    --tmpfs /tmp:rw,exec,nosuid,nodev,size=1g \
+    --env HOME="${sandbox_home}" \
+    --env XDG_CONFIG_HOME="${config}" \
+    --env XDG_DATA_HOME="${sandbox_home}/.local/share" \
+    --env XDG_STATE_HOME="${sandbox_home}/.local/state" \
+    --env XDG_CACHE_HOME="${sandbox_home}/.cache" \
+    --env OPENCODE_CONFIG_DIR="${config}/opencode" \
+    --entrypoint /bin/bash \
+    "${image}" \
+    -c '
+        set -e
+
+        mkdir -p \
+            "$XDG_DATA_HOME" \
+            "$XDG_STATE_HOME" \
+            "$XDG_CACHE_HOME"
+
+        exec /usr/bin/opencode "$@"
+    ' bash "$@"

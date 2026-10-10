@@ -654,6 +654,7 @@ RUN \
             rclone \
             netcat-openbsd \
             iproute2 \
+            less \
     && \
     echo "**** Section cleanup ****" \
         && apt-get clean autoclean -y \
@@ -747,14 +748,17 @@ ENV \
 # -----------------------------------------------
 
 ENV \
-    LIQUIDPROMPT_THEME=powerline
+    LIQUIDPROMPT_THEME=powerline \
+    XDG_CONFIG_HOME=${TOOLBOX_CONFIG}/liquidprompt
 
 # -----------------------------------------------
 # Config: OpenCode
 # -----------------------------------------------
 
 ENV \
-    OPENCODE_CONFIG=${TOOLBOX_CONFIG}/opencode/opencode.json
+    OPENCODE_CONFIG=${TOOLBOX_CONFIG}/opencode/opencode.json \
+    OPENCODE_CONFIG_CONTENT=${TOOLBOX_CONFIG}/opencode \
+    OPENCODE_DISABLE_EXTERNAL_SKILLS=1
 
 # -----------------------------------------------
 # Config: Git
@@ -902,7 +906,6 @@ RUN \
             /usr/bin/toolbox.sh \
             "${TOOLBOX_BIN}/vi" \
             "${TOOLBOX_BIN}/tmux" \
-            "${TOOLBOX_BIN}/cheat" \
     && \
     echo "**** Load /etc/bash.bashrc.d fragments ****" \
         && printf '%s\n' \

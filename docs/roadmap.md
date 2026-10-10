@@ -1,41 +1,10 @@
-<!---
-############################################################
-# Copyright (c) 2026 Igor Sadza
-# Released under the GPLv3 license
-# ----------------------------------------------------------
-#
-# FILE: ./docs/roadmap.md
-# DESC: Roadmap - next CLI tools & features (TODO list)
-#
-############################################################
---->
-<!---
- /$$$$$$$                            /$$
-| $$__  $$                          | $$
-| $$  \ $$  /$$$$$$   /$$$$$$   /$$$$$$$ /$$$$$$/$$$$   /$$$$$$   /$$$$$$
-| $$$$$$$/ /$$__  $$ |____  $$ /$$__  $$| $$_  $$_  $$ |____  $$ /$$__  $$
-| $$__  $$| $$  \ $$  /$$$$$$$| $$  | $$| $$ \ $$ \ $$  /$$$$$$$| $$  \ $$
-| $$  \ $$| $$  | $$ /$$__  $$| $$  | $$| $$ | $$ | $$ /$$__  $$| $$  | $$
-| $$  | $$|  $$$$$$/|  $$$$$$$|  $$$$$$$| $$ | $$ | $$|  $$$$$$$| $$$$$$$/
-|__/  |__/ \______/  \_______/ \_______/|__/ |__/ |__/ \_______/| $$____/
-                                                                | $$
-                                                                |__/
---->
 # Roadmap
-<sup>[(Back to README)](../README.md#miscellaneous)</sup>
 
-<h3 id="roadmap---todo-list">
-   $\large\color{Goldenrod}{\textbf{Roadmap - TODO List}}$
-</h3>
-
-Next iterations. Every tool is added with the **same section formula** as the existing ones - see [Updates - Adding a tool](./updates.md#updates---adding-a-tool).
+Proposed next iterations are listed below; they are not scheduled commitments. Current boundaries and verification limits belong in the [runtime](reference/runtime.md), [clipboard](reference/terminal-clipboard.md), and [automation](reference/automation.md) references. Tool candidates, `.env` keys, download choices, and Renovate datasources below are proposals, not configured installation. Follow [image maintenance](playbooks/image-maintenance.md#adding-a-tool) if adopting a tool.
 
 Legend - method: `GPG` vendor apt repo · `BIN` release binary + sha256 · `APT` Debian package · `PIPX` / `NPM` / `CARGO` / `GO` language package manager.
 
-##
-<h3 id="cloud">
-   $\large\color{Goldenrod}{\textbf{Cloud}}$
-</h3>
+## Cloud
 
 | | Tool | Method | Source | `.env` keys | Renovate datasource |
 |:-:|:-----|:------:|:-------|:------------|:--------------------|
@@ -43,25 +12,22 @@ Legend - method: `GPG` vendor apt repo · `BIN` release binary + sha256 · `APT`
 | [ ] | gcloud | `GPG` | `packages.cloud.google.com/apt` | `INSTALL_GCLOUD`, `GCLOUD_VERSION` | `deb` |
 | [ ] | oci-cli | `PIPX` | PyPI `oci-cli` | `PIPX_OCI_CLI` | `pypi` |
 
-##
-<h3 id="lint">
-   $\large\color{Goldenrod}{\textbf{Lint & quality}}$
-</h3>
+## Lint and Quality
 
 | | Tool | Method | Source | `.env` keys | Renovate datasource |
 |:-:|:-----|:------:|:-------|:------------|:--------------------|
 | [ ] | hadolint | `BIN` | `hadolint/hadolint` releases | `INSTALL_HADOLINT`, `HADOLINT_VERSION`, `HADOLINT_SHA256` | `github-releases` |
 | [ ] | shellcheck | `APT` | Debian `shellcheck` | - | - |
+| [ ] | shfmt | `BIN` | `mvdan/sh` releases | `INSTALL_SHFMT`, `SHFMT_VERSION`, `SHFMT_SHA256` | `github-releases` |
 | [ ] | actionlint | `BIN` | `rhysd/actionlint` releases | `INSTALL_ACTIONLINT`, `ACTIONLINT_VERSION`, `ACTIONLINT_SHA256` | `github-releases` |
 | [ ] | yamllint | `PIPX` | PyPI `yamllint` | `PIPX_YAMLLINT` | `pypi` |
 | [ ] | tflint | `BIN` | `terraform-linters/tflint` releases | `INSTALL_TFLINT`, `TFLINT_VERSION`, `TFLINT_SHA256` | `github-releases` |
 | [ ] | pre-commit | `PIPX` | PyPI `pre-commit` | `PIPX_PRE_COMMIT` | `pypi` |
 | [ ] | markdownlint-cli2 | `NPM` | npm `markdownlint-cli2` | `NPM_MARKDOWNLINT_CLI2` | `npm` |
 
-##
-<h3 id="kubernetes">
-   $\large\color{Goldenrod}{\textbf{Kubernetes}}$
-</h3>
+ShellCheck and shfmt must be available on the normal CLI `PATH`, not only through editor-managed tools. Mason already requests shfmt and tflint; editor provisioning does not establish ordinary-shell availability. Verify CLI commands from an ordinary Toolbox shell.
+
+## Kubernetes
 
 | | Tool | Method | Source | `.env` keys | Renovate datasource |
 |:-:|:-----|:------:|:-------|:------------|:--------------------|
@@ -75,10 +41,7 @@ Legend - method: `GPG` vendor apt repo · `BIN` release binary + sha256 · `APT`
 | [ ] | velero | `BIN` | `vmware-tanzu/velero` releases | `INSTALL_VELERO`, ... | `github-releases` |
 | [ ] | krew | `BIN` | `kubernetes-sigs/krew` releases | `INSTALL_KREW`, ... | `github-releases` |
 
-##
-<h3 id="iac">
-   $\large\color{Goldenrod}{\textbf{IaC}}$
-</h3>
+## Infrastructure as Code
 
 | | Tool | Method | Source | `.env` keys | Renovate datasource |
 |:-:|:-----|:------:|:-------|:------------|:--------------------|
@@ -88,10 +51,7 @@ Legend - method: `GPG` vendor apt repo · `BIN` release binary + sha256 · `APT`
 | [ ] | vault | `GPG` | HashiCorp apt (same repo as terraform) | `INSTALL_VAULT`, `VAULT_VERSION` | `deb` |
 | [ ] | terraform-docs | `BIN` | `terraform-docs/terraform-docs` releases | `INSTALL_TERRAFORM_DOCS`, ... | `github-releases` |
 
-##
-<h3 id="security">
-   $\large\color{Goldenrod}{\textbf{Secrets & supply chain}}$
-</h3>
+## Secrets and Supply Chain
 
 | | Tool | Method | Source | `.env` keys | Renovate datasource |
 |:-:|:-----|:------:|:-------|:------------|:--------------------|
@@ -102,10 +62,7 @@ Legend - method: `GPG` vendor apt repo · `BIN` release binary + sha256 · `APT`
 | [ ] | syft / grype | `BIN` | `anchore/syft`, `anchore/grype` releases | `INSTALL_SYFT`, ... | `github-releases` |
 | [ ] | crane / skopeo | `BIN` / `APT` | `google/go-containerregistry` / Debian | `INSTALL_CRANE`, ... | `github-releases` |
 
-##
-<h3 id="git">
-   $\large\color{Goldenrod}{\textbf{Git}}$
-</h3>
+## Git
 
 | | Tool | Method | Source | `.env` keys | Renovate datasource |
 |:-:|:-----|:------:|:-------|:------------|:--------------------|
@@ -114,30 +71,34 @@ Legend - method: `GPG` vendor apt repo · `BIN` release binary + sha256 · `APT`
 | [ ] | lazygit | `BIN` | `jesseduffield/lazygit` releases | `INSTALL_LAZYGIT`, ... | `github-releases` |
 | [ ] | git-delta | `BIN` | `dandavison/delta` releases | `INSTALL_DELTA`, ... | `github-releases` |
 
-##
-<h3 id="containers">
-   $\large\color{Goldenrod}{\textbf{Containers}}$
-</h3>
+## Containers
 
 | | Tool | Method | Source | `.env` keys | Renovate datasource |
 |:-:|:-----|:------:|:-------|:------------|:--------------------|
 | [ ] | lazydocker | `BIN` | `jesseduffield/lazydocker` releases | `INSTALL_LAZYDOCKER`, ... | `github-releases` |
 | [ ] | dive | `BIN` | `wagoodman/dive` releases | `INSTALL_DIVE`, ... | `github-releases` |
 
-##
-<h3 id="shell">
-   $\large\color{Goldenrod}{\textbf{Shell quality of life}}$
-</h3>
+## Shell Quality of Life
 
 | | Tool | Method | Source | `.env` keys | Renovate datasource |
 |:-:|:-----|:------:|:-------|:------------|:--------------------|
 | [ ] | fzf, bat, eza, zoxide, direnv, btop, httpie | `APT` | Debian | - | - |
-| [ ] | yq | `BIN` | `mikefarah/yq` releases | `INSTALL_YQ`, ... | `github-releases` |
+| [ ] | yq v4 | `BIN` | `mikefarah/yq` releases | `INSTALL_YQ`, ... | `github-releases` |
+| [ ] | curl (explicit core provisioning) | `APT` | Debian | - | - |
+| [ ] | jq, rsync | `APT` | Debian | - | - |
+| [ ] | procps, psmisc, lsof, strace | `APT` | Debian | - | - |
+| [ ] | zip, unzip, xz-utils, bzip2, zstd, openssl | `APT` | Debian | - | - |
+| [ ] | htop, entr, hyperfine | `APT` | Debian | - | - |
+| [ ] | man-db and manpages | `APT` | Debian | - | - |
+| [ ] | tcpdump | `APT` | Debian | - | - |
 
-##
-<h3 id="corporate">
-   $\large\color{Goldenrod}{\textbf{Corporate}}$
-</h3>
+Keep packet capture optional. Check existing provisioning sections before adding packages to avoid duplicate installation.
+
+Make core `curl` availability independent of optional tool sections; see [current core package provisioning](reference/tools.md#core-package-availability).
+
+The yq v4 installation must pin the version, select downloads for the target architecture, and verify checksums. This requirement does not establish multi-architecture support for the rest of the image.
+
+## Corporate Networks
 
 - [ ] Proxy inside the running container (compose `environment:`, upper + lowercase, from `.env`)
 - [ ] apt proxy config written by the entrypoint at runtime (removed when empty)
@@ -145,12 +106,18 @@ Legend - method: `GPG` vendor apt repo · `BIN` release binary + sha256 · `APT`
 - [ ] `~/.docker/config.json` `proxies` guidance for containers started from the toolbox
 - [ ] `NO_PROXY` guidance (internal domains, Kubernetes API endpoints, CIDR support per tool)
 
-##
-<h3 id="done">
-   $\large\color{Goldenrod}{\textbf{Done}}$
-</h3>
+## Configuration and Clipboard
 
-- [x] FUSE: `fuse3`, `sshfs`, `rclone` (+ `/dev/fuse`)
-- [x] NFS: daemon-mounted volumes + ad-hoc mounts
-- [x] Reproducible build: every input pinned, BIN checksums, `lazy-lock.json`, Mason registry
-- [x] Automation: Renovate, checksums, nvim-lock, weekly rebuild, semantic release -> GHCR
+- [ ] Decide whether to expose `fd` alongside Debian's `fdfind`.
+- [ ] Decide whether direct `nvim` and `vi` should select the same bundled configuration; see [entrypoint differences](reference/neovim-integration.md#entrypoints-and-persistence).
+- [ ] Resolve [OpenCode executable, child configuration, and credential-forwarding gaps](reference/opencode.md#launch-and-configuration-boundaries), then verify authorized MCP reads.
+- [ ] Review Git pager behavior for SSH use.
+- [ ] Document diagnostic-tool permission limits; do not weaken container security just to enable `strace` or packet capture.
+- [ ] Verify effective tmux, OpenCode, and Neovim clipboard behavior; see [terminal and clipboard](reference/terminal-clipboard.md).
+- [ ] Design an opt-in authenticated PNG clipboard bridge for local Linux, SSH, and WSL use; preserve the security, platform, fallback, and acceptance criteria in the [image bridge proposal](notes/clipboard-image-bridge.md).
+
+## Tooling and Smoke Checks
+
+- [ ] Add smoke checks for promised core commands and archive creation/extraction.
+- [ ] Add functional jq and yq transformation tests if those tools are adopted.
+- [ ] Evaluate whether package and manual-page retention meets the image's size and usability goals.

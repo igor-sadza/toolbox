@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+############################################################
+# Copyright (c) 2026 Igor Sadza
+# Released under the GPLv3 license
+# ----------------------------------------------------------
+#
+# FILE: build/rootfs/opt/toolbox/bin/opencode
+# DESC: OpenCode wrapper - use user-level configuration
+#
+############################################################
+
+set -Eeuo pipefail
+
+exec env \
+  XDG_CONFIG_HOME="${TOOLBOX_CONFIG}" \
+  OPENCODE_CONFIG_DIR="${TOOLBOX_CONFIG}/opencode" \
+  OPENCODE_CONFIG="${TOOLBOX_CONFIG}/opencode.json" \
+  /usr/bin/opencode "$@"
