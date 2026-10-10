@@ -761,6 +761,13 @@ ENV \
     OPENCODE_DISABLE_EXTERNAL_SKILLS=1
 
 # -----------------------------------------------
+# Config: Tmux 
+# -----------------------------------------------
+
+ENV \
+    TMUX_PLUGIN_MANAGER_PATH=${TOOLBOX_CONFIG}/tmux/plugins/tpm
+
+# -----------------------------------------------
 # Config: Git
 # -----------------------------------------------
 
@@ -812,6 +819,7 @@ RUN \
         "${RUSTUP_HOME}" \
         "${UV_TOOL_DIR}" \
         "${UV_CACHE_DIR}" \
+        "${TMUX_PLUGIN_MANAGER_PATH}" \
     && setfacl \
         -m g:toolbox-shared:rwx \
         -m d:g:toolbox-shared:rwx \
@@ -828,7 +836,8 @@ RUN \
         "${CARGO_TARGET_DIR}" \
         "${RUSTUP_HOME}" \
         "${UV_TOOL_DIR}" \
-        "${UV_CACHE_DIR}"
+        "${UV_CACHE_DIR}" \
+        "${TMUX_PLUGIN_MANAGER_PATH}"
 
 # -----------------------------------------------
 # Postflight: Python, npm, and Cargo packages
@@ -927,6 +936,21 @@ RUN \
             > /etc/sudoers.d/toolbox \
         && chmod 0440 /etc/sudoers.d/toolbox \
         && visudo -q -cf /etc/sudoers.d/toolbox
+
+# -----------------------------------------------
+# Postflight: Install Tmux plugins
+# -----------------------------------------------
+
+ARG \
+    TPM_REF=${TPM_REF}
+
+RUN \
+    echo "**** Postflight: Install Tmux plugins ****" \
+    && umask 0002 \
+    && \
+    echo "**** Install Tmux Plugins ****" \
+        && git clone --branch "${TPM_REF}" --depth 1 https://github.com/tmux-plugins/tpm.git ${TMUX_PLUGIN_MANAGER_PATH} \
+        && ${TMUX_PLUGIN_MANAGER_PATH}/bin/install_plugins
 
 # -----------------------------------------------
 # Postflight: Install Neovim plugins
