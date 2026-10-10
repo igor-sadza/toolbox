@@ -631,6 +631,7 @@ RUN \
             pipx \
             python3 \
             python3-dev \
+            python3-openstackclient \
             build-essential \
             file \
             sqlite3 \
@@ -655,6 +656,8 @@ RUN \
             netcat-openbsd \
             iproute2 \
             less \
+            gh \
+            rsync \
     && \
     echo "**** Section cleanup ****" \
         && apt-get clean autoclean -y \
