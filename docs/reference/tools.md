@@ -1,6 +1,7 @@
 # Tool Catalogue
 
-This human-readable selected default-build catalogue is generated from [`.env.example`](../../.env.example) by [`.cicd/docs/update-tools.sh`](../../.cicd/docs/update-tools.sh). Existing [checksum automation](../../.github/workflows/checksums.yml) writes this file; it is retained without adding a parallel inventory. It lists configured inputs, not a complete installed-tool inventory or observed versions. Manual input/generator changes require the [refresh procedure and marker checks](../playbooks/image-maintenance.md#review-an-update); automation only handles matching Renovate PRs.
+This catalogue lists core tools configured in the image. For details on updates, verify against the [source configuration](../../.env.example) and follow [image maintenance](../playbooks/image-maintenance.md#review-an-update).
+
 
 <!-- tools:start -->
 | Tool | Method | Version |

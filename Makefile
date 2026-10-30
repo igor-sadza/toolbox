@@ -241,14 +241,15 @@ install:
 #
 ############################################################
 
-IMAGE ?= toolbox
-
 .PHONY: test
 test:
 	@echo "------------------------"
-	@echo " > Testing $(IMAGE)..."
-	@echo "------------------------"
-	@.cicd/tests/smoke.sh "$(IMAGE)"
+	@echo " > Testing ..." >&2
+	@echo "------------------------" >&2
+	@$(LOAD_ENV)
+	@T=$${IMAGE:-$$TOOLBOX_IMAGE:$$TOOLBOX_VERSION}; \
+	echo " > Testing $$T..." >&2; \
+	. .cicd/tests/smoke.sh "$$T"
 
 ############################################################
 # CICD 

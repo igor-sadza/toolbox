@@ -1,281 +1,198 @@
-############################################################
-# Copyright (c) 2026 Igor Sadza
-# Released under the GPLv3 license
-# ----------------------------------------------------------
-#
-# FILE: ./.github/workflows/build.yml
-# DESC: Build, test and publish the toolbox image (GHCR)
-#
-# ----------------------------------------------------------
-#  Trigger              | Publishes
-#  ---------------------+------------------------------------
-#  pull_request         | nothing (build + test only)
-#  push: develop        | :edge, :edge-<sha>
-#  workflow_call        | :X.Y.Z, :X.Y, :X, :latest (release)
-#  schedule (weekly)    | :weekly, :weekly-YYYYMMDD
-#                       |   (latest release + Debian updates)
-#  workflow_dispatch    | optional custom tag
-#
-############################################################
-
 name: "build"
 
-# ============================
-# Dispatchers
-# ============================
+# =============================================================
+# Triggers
+# ----------------------------------------------------------
+# pull_request       → lint + build only
+# push: develop      → lint + build + publish edge + release
+# schedule (weekly)  → build with Debian updates → weekly tags
+# workflow_dispatch: select ref (default current branch) -> build + publish manual tag if specified
+# =============================================================
 
 on:
   pull_request:
-    branches:
-      - develop
-
+    branches: [develop]
   push:
-    branches:
-      - develop
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-
+    branches: [develop]
+    paths-ignore: ['**/*.md', 'docs/**', 'CHANGELOG.md']
   schedule:
-    # Mondays 04:00 UTC
-    - cron: '0 4 * * 1'
-
+    - cron: '0 4 * * 1'  # Mondays 04:00 UTC
   workflow_dispatch:
     inputs:
+      ref:
+        description: "Branch, tag, or SHA to checkout"
+        required: false
+        default: ''
       tag:
-        description: "Extra image tag to publish (empty = build + test only)"
+        description: "Extra image tag"
         required: false
         default: ''
 
-  workflow_call:
-    inputs:
-      version:
-        description: "Release version (X.Y.Z) to build and publish"
-        required: true
-        type: string
-    secrets:
-      WORKFLOW_TOKEN:
-        required: true
-
-# ============================
-# Parameters
-# ============================
-
-env:
-  IMAGE_NAME: ghcr.io/igor-sadza/toolbox
-  TEST_IMAGE: toolbox:ci
-
-# ============================
-# Repo permissions
-# ============================
-
 permissions:
   contents: read
-  packages: write
 
 concurrency:
-  group: build-${{ github.event_name }}-${{ inputs.version || github.ref }}
+  group: build-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# ============================
-# Jobs
-# ============================
-
 jobs:
-
-# ------------------------------------------------------------
-#     ___       _ __   _____           __
-#    / _ )__ __(_) /__/ / _ \___  ____/ /_____ ____
-#   / _  / // / / / _  / // / _ \/ __/  '_/ -_) __/
-#  /____/\_,_/_/_/\_,_/____/\___/\__/_/\_\\__/_/
-
-  BuildDocker:
-    name: "Build Docker"
+  build:
+    name: Docker image
     runs-on: ubuntu-latest
     timeout-minutes: 120
+
     steps:
+    - name: Checkout
+      uses: actions/checkout@v7
+      with:
+        token: ${{ github.event_name == 'push' && github.ref_name == 'develop' && secrets.WORKFLOW_TOKEN || github.token }}
+        fetch-depth: 0
+        ref: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.ref || github.ref) || github.event_name == 'push' && github.sha || github.ref }}
 
-      # --------------------------------------------
-      # Resolve what to build and where to publish
-      # --------------------------------------------
+    - name: Lint & scan
+      shell: bash
+      run: |
+        set -e
+        docker run --rm -i --user root \
+          hadolint/hadolint:v2.15.1 hadolint \
+            --ignore DL3008 --ignore DL4006 --ignore SC2086 \
+            --ignore DL3003 --ignore SC1008 --ignore SC2174 \
+            < build/Dockerfile
+        docker run --rm -v "${PWD}:/repo" \
+          ghcr.io/gitleaks/gitleaks:v8.30.1 git /repo \
+            --log-opts=HEAD --redact --verbose
 
-      - name: 'Resolve mode'
-        id: mode
-        shell: bash
-        env:
-          EVENT:       ${{ github.event_name }}
-          VERSION:     ${{ inputs.version }}
-          CUSTOM_TAG:  ${{ inputs.tag }}
-          SHA:         ${{ github.sha }}
-        run: |
-          set -Eeuo pipefail
-          ref=""; tags=(); upgrade="false"; publish="false"
+    - name: Setup BuildKit
+      uses: docker/setup-buildx-action@v4
+      with:
+        driver: ${{ env.ACT && 'docker' || 'docker-container' }}
 
-          # Reusable calls inherit the caller's event name,
-          # so a release is detected by the version input.
-          [[ -n "${VERSION}" ]] && EVENT="release"
+    - name: Build arguments
+      id: args
+      shell: bash
+      run: |
+        {
+          echo "BUILD_ARGS<<EOF"
+          .cicd/github/build-args.sh .env.example
+          echo "APT_UPGRADE=${{ github.event_name == 'schedule' }}"
+          echo "EOF"
+        } >> "${GITHUB_OUTPUT}"
 
-          case "${EVENT}" in
-            release)
-              ref="v${VERSION}"
-              IFS=. read -r major minor _ <<< "${VERSION}"
-              tags=("${VERSION}" "${major}.${minor}" "${major}" "latest")
-              ;;
-            schedule)
-              ref="@latest-release"
-              upgrade="true"
-              tags=("weekly" "weekly-$(date -u +%Y%m%d)")
-              ;;
-            push)
-              tags=("edge" "edge-${SHA::7}")
-              ;;
-            workflow_dispatch)
-              [[ -n "${CUSTOM_TAG}" ]] && tags=("${CUSTOM_TAG}")
-              ;;
-          esac
+    - name: Docker Build
+      uses: docker/build-push-action@v7
+      with:
+        context: build
+        file: build/Dockerfile
+        load: true
+        tags: toolbox:ci
+        build-args: ${{ steps.args.outputs.BUILD_ARGS }}
+        cache-from: ${{ !env.ACT && 'type=gha' || '' }}
+        cache-to: ${{ !env.ACT && github.event_name != 'schedule' && 'type=gha,mode=max' || '' }}
+        no-cache: ${{ github.event_name == 'schedule' }}
 
-          (( ${#tags[@]} > 0 )) && publish="true"
+    - name: Develop freshness guard
+      if: github.event_name == 'push' && github.ref_name == 'develop'
+      id: develop_gate
+      shell: bash
+      run: |
+        set -e
+        git fetch origin develop
+        TRIGGERING_SHA="${GITHUB_SHA}"
+        TIP_SHA=$(git rev-parse -q --verify "origin/develop^{commit}")
+        if [ "$TRIGGERING_SHA" = "$TIP_SHA" ]; then
+          echo "Triggering commit ${TRIGGERING_SHA:0:7} matches origin/develop tip; eligible for publication"
+          echo "fresh=true" >> "${GITHUB_OUTPUT}"
+        else
+          echo "Triggering commit ${TRIGGERING_SHA:0:7} ≠ origin/develop tip ${TIP_SHA:0:7}. Develop advanced since trigger."
+          echo "Skipping publication and semantic-release."
+          echo "fresh=false" >> "${GITHUB_OUTPUT}"
+        fi
 
-          {
-            echo "ref=${ref}"
-            echo "upgrade=${upgrade}"
-            echo "publish=${publish}"
-            echo "tags<<EOF"
-            for t in "${tags[@]}"; do echo "${IMAGE_NAME}:${t}"; done
-            echo "EOF"
-          } >> "${GITHUB_OUTPUT}"
+    - name: Login to GHCR
+      if: >-
+        (github.event_name == 'push' && github.ref_name == 'develop' && steps.develop_gate.outputs.fresh == 'true') ||
+        github.event_name == 'schedule' ||
+        (github.event_name == 'workflow_dispatch' && github.event.inputs.tag != '')
+      uses: docker/login-action@v4
+      with:
+        registry: ghcr.io
+        username: ${{ vars.GHCR_USERNAME || 'igor-sadza' }}
+        password: ${{ secrets.WORKFLOW_TOKEN }}
 
-      - name: 'Checkout'
-        if: ${{ !startsWith(steps.mode.outputs.ref, 'v') }}
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
+    - name: Publish edge
+      if: github.event_name == 'push' && github.ref_name == 'develop' && steps.develop_gate.outputs.fresh == 'true'
+      shell: bash
+      run: |
+        set -e
+        SHORT_SHA=$(echo "${GITHUB_SHA}" | cut -c1-7)
+        docker tag toolbox:ci ghcr.io/igor-sadza/toolbox:edge
+        docker push ghcr.io/igor-sadza/toolbox:edge
+        docker tag toolbox:ci ghcr.io/igor-sadza/toolbox:edge-${SHORT_SHA}
+        docker push ghcr.io/igor-sadza/toolbox:edge-${SHORT_SHA}
 
-      - name: 'Checkout release tag'
-        if: ${{ startsWith(steps.mode.outputs.ref, 'v') }}
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          ref: ${{ steps.mode.outputs.ref }}
+    - name: Setup Node.js
+      if: github.event_name == 'push' && github.ref_name == 'develop' && steps.develop_gate.outputs.fresh == 'true'
+      uses: actions/setup-node@v4
+      with:
+        node-version: 24
 
-      - name: 'Checkout latest release (weekly)'
-        if: steps.mode.outputs.ref == '@latest-release'
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          latest="$(git tag --list 'v*' --sort=-v:refname | head -n1)"
-          if [[ -n "${latest}" ]]; then
-            echo "Weekly rebuild of ${latest}"
-            git checkout --quiet "${latest}"
-          else
-            echo "No release tag yet - weekly rebuild of $(git rev-parse --short HEAD)"
-          fi
+    - name: Install release dependencies
+      if: github.event_name == 'push' && github.ref_name == 'develop' && steps.develop_gate.outputs.fresh == 'true'
+      shell: bash
+      run: npm install --no-audit --no-fund
 
-      # --------------------------------------------
-      # Lint
-      # --------------------------------------------
+    - name: Semantic release
+      if: github.event_name == 'push' && github.ref_name == 'develop' && steps.develop_gate.outputs.fresh == 'true'
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+      run: npx --no-install semantic-release
 
-      - name: 'Lint Dockerfile'
-        shell: bash
-        run: |
-          docker run --rm -i \
-            hadolint/hadolint:v2.15.1 \
-            hadolint \
-              --ignore DL3008 \
-              --ignore DL4006 \
-              --ignore SC2086 \
-              --ignore DL3003 \
-              --ignore SC1008 \
-              --ignore SC2174 \
-              - < build/Dockerfile
+    - name: Publish versioned release
+      if: github.event_name == 'push' && github.ref_name == 'develop' && steps.develop_gate.outputs.fresh == 'true'
+      shell: bash
+      run: |
+        set -e
+        TAG=$(git tag --points-at HEAD --list 'v[0-9]*')
+        if [[ -z "${TAG}" ]]; then
+          echo "No release tag at HEAD — skipping versioned publish"
+          exit 0
+        fi
 
-      - name: 'Scan repository for secrets'
-        shell: bash
-        run: |
-          docker run --rm \
-            -v "${PWD}:/repo" \
-            ghcr.io/gitleaks/gitleaks:v8.30.1 \
-            git /repo \
-              --log-opts=HEAD \
-              --redact \
-              --verbose
+        VERSION=${TAG#v}
+        IFS=. read -r major minor _ <<< "${VERSION}"
 
-      # --------------------------------------------
-      # Build
-      # --------------------------------------------
+        for tag in "${VERSION}" "${major}.${minor}" "${major}" "latest"; do
+          docker tag toolbox:ci "ghcr.io/igor-sadza/toolbox:$tag"
+          docker push "ghcr.io/igor-sadza/toolbox:$tag"
+        done
 
-      - name: 'Extract Build Arguments'
-        id: build_arguments
-        shell: bash
-        env:
-          UPGRADE: ${{ steps.mode.outputs.upgrade }}
-        run: |
-          set -Eeuo pipefail
-          {
-            echo "BUILD_ARGS<<EOF"
-            .cicd/github/build-args.sh .env.example
-            echo "APT_UPGRADE=${UPGRADE}"
-            echo "EOF"
-          } >> "${GITHUB_OUTPUT}"
+    - name: Publish weekly
+      if: github.event_name == 'schedule'
+      shell: bash
+      run: |
+        DATE=$(date -u +%Y%m%d)
+        docker tag toolbox:ci ghcr.io/igor-sadza/toolbox:weekly
+        docker push ghcr.io/igor-sadza/toolbox:weekly
+        docker tag toolbox:ci ghcr.io/igor-sadza/toolbox:weekly-${DATE}
+        docker push ghcr.io/igor-sadza/toolbox:weekly-${DATE}
 
-      # Needs the GitHub API (repo info) - skipped under act.
-      - name: 'Extract Repository Metadata'
-        if: ${{ !env.ACT }}
-        id: repository_metadata
-        uses: docker/metadata-action@v6
-        with:
-          images: ${{ env.IMAGE_NAME }}
-
-      # act: build with the host daemon (its registry / network config).
-      - uses: docker/setup-buildx-action@v4
-        with:
-          driver: ${{ env.ACT && 'docker' || 'docker-container' }}
-
-      - name: 'Build image'
-        uses: docker/build-push-action@v7
-        with:
-          context:    build
-          file:       build/Dockerfile
-          load:       true
-          push:       false
-          tags:       ${{ env.TEST_IMAGE }}
-          labels:     ${{ steps.repository_metadata.outputs.labels }}
-          build-args: ${{ steps.build_arguments.outputs.BUILD_ARGS }}
-          # No GitHub cache service under act (ACT=true) -> no gha cache.
-          cache-from: ${{ !env.ACT && 'type=gha' || '' }}
-          cache-to:   ${{ (env.ACT || steps.mode.outputs.upgrade == 'true') && '' || 'type=gha,mode=max' }}
-          no-cache:   ${{ steps.mode.outputs.upgrade == 'true' }}
-
-      # --------------------------------------------
-      # Test
-      # --------------------------------------------
-
-      - name: 'Smoke test'
-        shell: bash
-        run: .cicd/tests/smoke.sh "${TEST_IMAGE}"
-
-      # --------------------------------------------
-      # Publish
-      # --------------------------------------------
-
-      - name: 'Log in to the Container registry'
-        if: steps.mode.outputs.publish == 'true'
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ vars.GHCR_USERNAME || 'igor-sadza' }}
-          password: ${{ secrets.WORKFLOW_TOKEN }}
-
-      - name: 'Push image'
-        if: steps.mode.outputs.publish == 'true'
-        shell: bash
-        env:
-          TAGS: ${{ steps.mode.outputs.tags }}
-        run: |
-          set -Eeuo pipefail
-          while IFS= read -r tag; do
-            [[ -n "${tag}" ]] || continue
-            docker tag "${TEST_IMAGE}" "${tag}"
-            docker push "${tag}"
-            echo "- \`${tag}\`" >> "${GITHUB_STEP_SUMMARY}"
-          done <<< "${TAGS}"
+    - name: Publish manual tag
+      if: github.event_name == 'workflow_dispatch' && github.event.inputs.tag != ''
+      shell: bash
+      env:
+        TAG: ${{ github.event.inputs.tag }}
+      run: |
+        set -e
+        case "${TAG}" in
+          edge|edge-*|weekly|weekly-*|latest|[0-9]*)
+            echo "Rejecting reserved tag: ${TAG}"
+            exit 1
+            ;;
+        esac
+        if ! [[ "${TAG}" =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$ ]]; then
+          echo "Invalid Docker tag syntax: ${TAG}"
+          exit 1
+        fi
+        docker tag toolbox:ci ghcr.io/igor-sadza/toolbox:"${TAG}"
+        docker push ghcr.io/igor-sadza/toolbox:"${TAG}"

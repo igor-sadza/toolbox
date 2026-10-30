@@ -1,26 +1,25 @@
 # Repository Guidance
 
-- Treat source and configuration as evidence of behavior; distinguish implemented, configured, verified, planned, and unknown claims.
-- Keep documentation concise and update links when moving documents. Do not duplicate generated tool versions.
+- Treat source and configuration as evidence; distinguish implemented, configured, verified, planned, and unknown.
+- Keep documentation concise. Update links when moving documents. Do not duplicate generated tool versions.
 - Preserve unrelated worktree changes. Do not modify runtime implementation when performing documentation work.
 
 ## Verification
 
-- `make test IMAGE=<image>` runs the configured image smoke checks; it requires Docker and an available image.
-- `bash -n .cicd/docs/update-tools.sh` checks the documentation generator's shell syntax.
-- After documentation or generator changes, verify links and generated output consistency. Repository CI does not configure Markdown link validation.
+- `make test IMAGE=<image>` runs smoke checks; requires Docker and an available image.
+- `bash -n .cicd/docs/update-tools.sh` validates the documentation generator syntax.
+- After documentation changes, verify link integrity and generated output consistency.
 
 ## Task Map
 
 | Task | Context |
 |---|---|
-| Understand repository scope and source locations | [Overview](docs/overview.md) |
-| Maintain documentation and locate canonical topic guidance | [Document responsibilities](docs/overview.md#documentation-responsibilities) |
-| Use or configure Toolbox | [Usage](docs/playbooks/usage.md), [runtime and persistence](docs/reference/runtime.md) |
-| Configure storage | [Storage](docs/playbooks/storage.md) |
-| Review OpenCode launch/configuration gaps or MCP access | [OpenCode integration](docs/reference/opencode.md) |
-| Configure Neovim entrypoints or review plugin and Mason updates | [Neovim integration](docs/reference/neovim-integration.md) |
-| Review cross-component clipboard verification and the image bridge proposal | [Terminal and clipboard](docs/reference/terminal-clipboard.md), [image bridge note](docs/notes/clipboard-image-bridge.md) |
-| Build, test, release, or update the image | [Image maintenance](docs/playbooks/image-maintenance.md), [automation](docs/reference/automation.md), [tool catalogue](docs/reference/tools.md) |
-| Review future work | [Roadmap](docs/roadmap.md) |
-| Review proposed repository boundary | [Dotfiles proposal](docs/architecture/dotfiles-proposal.md) |
+| Scope and documentation structure | [Overview](docs/overview.md) |
+| Daily use and setup | [Usage](docs/playbooks/usage.md), [Runtime](docs/reference/runtime.md) |
+| Storage and NFS | [Storage](docs/playbooks/storage.md) |
+| OpenCode and MCP access | [OpenCode](docs/reference/opencode.md) |
+| Neovim configuration | [Neovim](docs/reference/neovim-integration.md) |
+| Clipboard behavior | [Terminal](docs/reference/terminal-clipboard.md), [Image Bridge Note](docs/notes/clipboard-image-bridge.md) |
+| Build, test, release | [Image Maintenance](docs/playbooks/image-maintenance.md), [Automation](docs/reference/automation.md), [Tools](docs/reference/tools.md) |
+| Planned work | [Roadmap](docs/roadmap.md) |
+| Proposed boundaries | [Dotfiles Proposal](docs/architecture/dotfiles-proposal.md) |

@@ -973,7 +973,7 @@ RUN \
         && git config --global --add safe.directory '*' \
         && /usr/local/bin/vi \
             --headless \
-            "+Lazy! sync" \
+            "+Lazy! restore" \
             "+MasonToolsInstallSync" \
             "+lua require('nvim-treesitter').install(vim.g.toolbox_parsers):wait(600000)" \
             +qa \

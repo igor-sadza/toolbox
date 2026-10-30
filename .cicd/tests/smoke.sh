@@ -219,16 +219,54 @@ check_session() {
     local name="$1"
     local expected="$2"
     shift 2
-    local output
+    local output exit_code
 
-    output="$(session "$@" 2>&1 || true)"
-
-    if [[ "${output}" == *"${expected}"* ]]; then
-        printf '  [ OK ] %-14s %s\n' "${name}" "${expected}"
+    if output="$(session "$@" 2>&1)"; then
+        exit_code=0
     else
-        printf '  [FAIL] %-14s expected "%s", got "%s"\n' "${name}" "${expected}" "${output}"
-        failures=$((failures + 1))
+        exit_code=$?
     fi
+
+    if [[ $exit_code -ne 0 ]]; then
+        printf '  [FAIL] %-14s command failed (exit %d): expected "%s", got "%s"\n' "$name" "$exit_code" "$expected" "$output"
+        failures=$((failures + 1))
+        return
+    fi
+
+    # Select matching strategy based on test name
+    case "$name" in
+        *group*)
+            # Token membership: output may have multiple space-separated tokens
+            if [[ " ${output} " == *" ${expected} "* ]]; then
+                printf '  [ OK ] %-14s contains "%s"\n' "$name" "$expected"
+            else
+                printf '  [FAIL] %-14s expected to contain space-delimited token "%s", got "%s"\n' "$name" "$expected" "$output"
+                failures=$((failures + 1))
+            fi
+            ;;
+        *path*)
+            # PATH: expected must be first colon-delimited entry
+            local first_token="${output%%:*}"
+            if [[ "$first_token" == "$expected" ]]; then
+                printf '  [ OK ] %-14s first PATH entry\n' "$name"
+            else
+                printf '  [FAIL] %-14s expected first PATH entry "%s", got "%s"\n' "$name" "$expected" "$first_token"
+                failures=$((failures + 1))
+            fi
+            ;;
+        *)
+            # Exact match with whitespace normalization
+            local norm_exp norm_out
+            norm_exp=$(echo "$expected" | tr -s '[:space:]' ' ' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            norm_out=$(echo "$output" | tr -s '[:space:]' ' ' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            if [[ "$norm_out" == "$norm_exp" ]]; then
+                printf '  [ OK ] %-14s %s\n' "$name" "$norm_exp"
+            else
+                printf '  [FAIL] %-14s expected "%s", got "%s"\n' "$name" "$norm_exp" "$norm_out"
+                failures=$((failures + 1))
+            fi
+            ;;
+    esac
 }
 
 check_session uid      "4242"  id -u

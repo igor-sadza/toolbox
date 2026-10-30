@@ -1,40 +1,94 @@
 # Automation
 
-GitHub Actions, Renovate, and semantic-release configure independent image checks, dependency updates, and publication. Repository files do not establish successful execution, installed GitHub Apps, branch protection, secret permissions, or registry state. Follow [image maintenance](../playbooks/image-maintenance.md) for local procedures.
+GitHub Actions runs three workflows: one for all builds, one for dependency checksums, and one for Neovim updates. Renovate proposes version bumps. `semantic-release` creates version tags for releases on `develop`. All automation targets Linux x86-64 images on GHCR.
 
-## Workflows
+## Workflow Triggers
 
-The [build workflow](../../.github/workflows/build.yml) owns trigger/tag definitions: PR checks do not publish; edge pushes, weekly rebuilds, called releases, and explicitly selected manual publication have different outputs. The [release workflow](../../.github/workflows/release.yml) evaluates commits independently. Check those files for schedules and tag formats rather than duplicating a workflow inventory.
+| Workflow | Trigger | Output |
+|---|---|---|
+| **build** | PR on `develop` | Lint, scan, build. Image in build cache only. |
+| **build** | Push to `develop` | Lint, scan, build. Publish `edge`, `edge-<sha>`, run semantic-release. |
+| **build** | Weekly schedule (Mon 04:00 UTC) | Lint, build with `APT_UPGRADE=true`. Publish `weekly`, `weekly-YYYYMMDD`. |
+| **build** | Manual dispatch | Lint, scan, build. Publish manual tag if provided, or cache only. |
+| **checksums** | Renovate PR (`.env.example`) | Refresh BIN checksums and tools catalogue. Push commit to PR. |
+| **nvim-lock** | Monthly (1st 05:00 UTC) | Update Neovim plugins via `:Lazy! update`, open PR. |
 
-The [checksum workflow](../../.github/workflows/checksums.yml) refreshes checksums and the catalogue only for PRs to `develop` touching `.env.example` with a `renovate/*` head branch. That name filter does not verify bot authorship, and manual changes do not automatically receive the refresh. [Neovim updates](neovim-integration.md#updates-and-verification) have a separate workflow and ownership from weekly image rebuilds.
+## Main Pipeline
 
-Weekly builds select the highest version-sorted `v*` Git tag, not a GitHub Release API result. If no such tag exists, they retain checked-out HEAD. The edge push build ignores Markdown and `docs/**` changes; PR checks are not excluded by that rule. Documentation-only pushes can still trigger release evaluation because `docs:` commits are eligible for patch releases.
+```mermaid
+flowchart LR
+    PR["Pull Request\ndevelop"] -- lint + scan + build --> R["Done (no publication)"]
+    Push["Push develop"] -- lint + scan + build -->     E["Publish edge,\nedge-<sha>"]
+    E --> SR["semantic-release"]
+    SR -- version tag exists --> V["Publish versioned tags\nX.Y.Z, X.Y, X, latest"]
+    SR -- no version tag --> Done["Done"]
+    V --> Done
+    Weekly["Weekly schedule\n(Mon 04:00 UTC)"] -- lint + scan + build\nAPT_UPGRADE=true --> P["Publish weekly,\nweekly-YYYYMMDD"]
+    Manual["Manual dispatch"] -- lint + scan + build --> DT{Tag provided?}
+    DT -- yes --> PT["Publish manual tag"]
+    DT -- no --> DoneManual["Done"]
+```
+
+## Freshness Guard
+
+After Docker Build on develop push triggers, a freshness check compares the triggering commit SHA to the remote `origin/develop` tip. If they differ, the workflow completes lint → scan (build only) and skips publish. The guard does not provide atomic serialization against concurrent pushes.
+
+| Situation | Build | Publish |
+|---|---|---|
+| Normal develop push | ✓ | ✓ |
+| Stale rerun (develop moved) | ✓ | Skipped |
+| PR (pre-merge) | ✓ | — |
+| Manual dispatch (tag) | ✓ | ✓ |
+| Manual dispatch (no tag) | ✓ | — |
+| Weekly schedule | ✓ | ✓ |
 
 ## Dependency Updates
 
-Selected inputs are pinned in source; not every installed package has an explicit version pin.
+Source: [Renovate config](../../renovate.json), [checksums workflow](../../.github/workflows/checksums.yml), [nvim-lock workflow](../../.github/workflows/nvim-lock.yml).
 
-[`renovate.json`](../../renovate.json) configures a Monday window in the `Europe/Warsaw` timezone, with patch, minor, and digest automerge rules; it does not configure one combined weekly PR. Majors and `kubectl` minors require review under the configured rules. Effective CI merge gating depends on GitHub branch protection and required checks, not just Renovate settings.
+| Workflow | Frequency | Creates |
+|---|---|---|
+| Renovate | Weekly (Monday) | PR with version bumps in `.env.example` |
+| Checksums | On PR push | PR commit with updated BIN checksums and tools catalogue (`.cicd/docs/update-tools.sh`) |
+| Nvim-lock | Monthly (1st 05:00 UTC) | PR with updated Neovim plugin pins |
 
-There is no guaranteed serialized update-to-release pipeline. Inspect checks on the final refreshed PR commit rather than an earlier commit. Release evaluation does not wait for the independent edge build, and release artifacts can exist even if the subsequent release image build fails.
+Merge PRs only when the build workflow is green on the **final refreshed commit**. See [Image Maintenance – Review an Update](../playbooks/image-maintenance.md#review-an-update) for details on running the checksum generator safely.
+
+```mermaid
+flowchart LR
+    Renovate["Renovate PR"] --> Checksums["checksums workflow"]
+    Checksums -->|"BIN tools"| Env["Update .env.example"]
+    Checksums -->|"Catalogue"| Tools["Update tools.md"]
+    Env --> Push["Push commit to PR branch"]
+    Tools --> Push
+    Push --> Build["build workflow on PR"]
+```
 
 ## Release Rules
 
-The [semantic-release configuration](../../.releaserc.yml) owns commit rules on `develop`; Renovate uses `dep:`. In particular, `docs:` qualifies for a patch release even though Markdown/docs-only pushes are excluded from edge builds. Choose commit types deliberately rather than treating all documentation work as release-neutral.
+Source: [.releaserc.yml](../../.releaserc.yml)
 
-A qualifying release is configured to tag `vX.Y.Z`, commit `CHANGELOG.md` with `[skip ci]`, create a GitHub release, and call the build workflow for version and `latest` image tags. The checked-in configuration sets `ci: false` and `dryRun: false`: invoking semantic-release locally is not a harmless validation command and can perform release writes.
+- `feat:` → minor release
+- `fix:`, `build:`, `dep:`, `perf:`, `revert:`, `style:` → patch release
+- `breaking: true` → major release
+- `ci:`, `cicd:`, `chore:`, `docs:`, `refactor:`, `test:` → no release
+
+The same built image is tagged as versioned — no second build. The stale build guard (see [Freshness Guard](#freshness-guard)) also prevents publishing on reruns where `develop` has moved.
 
 ## GitHub Settings
 
-Check these external settings in GitHub before relying on automation:
-
-| Item | Configured use or required check |
+| Item | Used by |
 |---|---|
-| Secret `WORKFLOW_TOKEN` | GHCR publishing, automation pushes, and semantic-release's `GITHUB_TOKEN` |
-| Secret `SEMANTIC_RELEASE_TOKEN` | Release workflow checkout authentication; Git transport permissions require separate verification |
-| Variable `GHCR_USERNAME` | Optional registry username; workflow defaults to `igor-sadza` |
-| Renovate and automerge | Verify the app is installed and auto-merge enabled if intended |
-| Branch protection `develop` | Verify actual required-check behavior, including the configured **Build Docker** check and final refreshed commit |
-| GHCR package | Grant intended pull access; visibility and retention are external settings |
+| `WORKFLOW_TOKEN` (secret) | GHCR publish, semantic-release `GITHUB_TOKEN`, checksums push |
+| `GHCR_USERNAME` (variable) | GHCR login; defaults to `igor-sadza` |
+| Renovate app + automerge | Dependency PRs |
+| Branch protection (develop) | Required checks before merge |
 
-Secret presence and effective scopes, release Git writes, successful publication, and tag retention are unknown from repository files alone.
+## Failure Recovery
+
+| Problem | Action |
+|---|---|
+| Versioned image publication fails after release | Use `edge-<sha>` from the exact failed develop run for recovery |
+| Publication skipped — develop moved | Build-only run publishes no image tag; use a current eligible develop push or manual dispatch for recovery |
+| No version after qualifying commits | Check commit message format, `.releaserc.yml`, and branch name |
+| Weekly tag not created | Verify workflow run in GitHub Actions history |

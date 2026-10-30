@@ -10,7 +10,7 @@
 #  Renovate cannot update lazy.nvim / Mason pins. This job
 #  runs ':Lazy! update' inside the published :edge image,
 #  bumps the Mason registry pin to its latest release and
-#  opens a PR. The PR is built + smoke tested like any other.
+#  opens a PR. The PR triggers the build workflow (lint, scan, build).
 #
 ############################################################
 
@@ -117,5 +117,4 @@ jobs:
           - `lazy-lock.json` via `:Lazy! update` (in `${{ env.IMAGE }}`)
           - Mason registry pin in `lua/toolbox/plugins/lsp.lua` (latest release)
 
-          The build workflow restores exactly these versions and runs the
-          smoke test. Merge when green.
+          The build workflow triggered by this PR will lint, scan, and build the image (never publish).

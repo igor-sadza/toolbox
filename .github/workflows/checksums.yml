@@ -10,7 +10,7 @@
 #  Renovate bumps *_VERSION in .env.example but cannot know
 #  the new *_SHA256. This job recomputes them (cross-checked
 #  against upstream checksum files) and pushes a commit to
-#  the PR branch, which re-triggers the build + smoke test.
+#  the PR branch, which re-triggers the build workflow.
 #
 ############################################################
 

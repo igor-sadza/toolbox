@@ -16,14 +16,8 @@
 branches:
   - develop
 
-# Continuous Integration environment verifications. This allows making releases from a local machine.
-ci: false 
-
-# Output debugging information.
-debug: true
-
-# The objective of the dry-run mode is to get a preview of the pending release.
-dryRun: false
+# Continuous Integration environment verifications.
+ci: true
 
 ##############################################################################
 # Plugins
@@ -41,7 +35,7 @@ plugins:
     - { type: ci,       release: false }
     - { type: cicd,     release: false }
     - { type: dep,      release: patch }
-    - { type: docs,     release: patch }
+    - { type: docs,     release: false }
     - { type: feat,     release: minor }
     - { type: fix,      release: patch }
     - { type: perf,     release: patch }
@@ -76,24 +70,6 @@ plugins:
   # Plugin to create or update a changelog file.
   - path: '@semantic-release/changelog'
     changelogFile: 'CHANGELOG.md'        
-
-#-----------------------------------------------------------------------------
-
-  # Plugin to execute custom shell commands.
-  #- path: "@semantic-release/exec"
-  #  verifyReleaseCmd: >
-  #    source ./.hacks/bump_release.sh \
-  #    && release_hook \
-  #      "${nextRelease.version}" \
-  #      "${process.env.CI_PROJECT_NAME}"
-  #  
-  #  successCmd: >
-  #    source ./.hacks/bump_release.sh \
-  #    && post_release_hook \
-  #      "${nextRelease.version}" \
-  #      "${process.env.GITLAB_TOKEN}" \
-  #      "${nextRelease.notes}" \
-  #      "${process.env.CI_PROJECT_NAME}"
 
 #-----------------------------------------------------------------------------
 
