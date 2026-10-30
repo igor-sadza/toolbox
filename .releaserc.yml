@@ -68,8 +68,8 @@ plugins:
 #-----------------------------------------------------------------------------
 
   # Plugin to create or update a changelog file.
-  - path: '@semantic-release/changelog'
-    changelogFile: 'CHANGELOG.md'        
+  #- path: '@semantic-release/changelog'
+  #  changelogFile: 'CHANGELOG.md'        
 
 #-----------------------------------------------------------------------------
 

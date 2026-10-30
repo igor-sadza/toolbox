@@ -77,6 +77,7 @@ exec docker run \
     --env XDG_STATE_HOME="${sandbox_home}/.local/state" \
     --env XDG_CACHE_HOME="${sandbox_home}/.cache" \
     --env OPENCODE_CONFIG_DIR="${config}/opencode" \
+    --env TMUX= \
     --env OPENCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT=1 \
     --entrypoint /bin/bash \
     "${image}" \
