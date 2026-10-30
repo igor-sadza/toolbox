@@ -53,10 +53,12 @@ jobs:
       shell: bash
       run: |
         set -e
+
         docker run --rm -i hadolint/hadolint:v2.15.1 hadolint \
-            --ignore DL3008 --ignore DL4006 --ignore SC2086 \
-            --ignore DL3003 --ignore SC1008 --ignore SC2174 \
-            < build/Dockerfile
+          --ignore DL3008 --ignore DL4006 --ignore SC2086 \
+          --ignore DL3003 --ignore SC1008 --ignore SC2174 \
+          - < build/Dockerfile
+
         docker run --rm -v "${PWD}:/repo" \
           ghcr.io/gitleaks/gitleaks:v8.30.1 git /repo \
             --log-opts=HEAD --redact --verbose
