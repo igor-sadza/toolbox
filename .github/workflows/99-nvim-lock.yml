@@ -32,7 +32,7 @@ on:
 # ============================
 
 env:
-  IMAGE:      ghcr.io/igor-sadza/toolbox:edge
+  IMAGE:      ghcr.io/igor-sadza/toolbox:stable
   NVIM_DIR:   build/rootfs/opt/toolbox/config/nvim
   SHARED_GID: 29999
 

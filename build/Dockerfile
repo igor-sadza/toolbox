@@ -571,9 +571,9 @@ ARG \
     ACT_SHA256=""
 
 RUN \
-    echo "**** Core: Install ACT | Version: ${ACT_VERSION} ****" \
+    echo "**** Core: Install AWS CLI | Version: ${AWSCLI_VERSION} ****" \
     && \
-    if [ "${INSTALL_ACT}" = "true" ]; \
+    if [ "${INSTALL_AWSCLI}" = "true" ]; \
     then \
     echo "**** Prepare ****" \
         && apt-get update \
@@ -658,6 +658,28 @@ RUN \
             less \
             gh \
             rsync \
+            awscli \
+            curl \
+            openssl \
+            jq \
+            procps \
+            psmisc \
+            lsof \
+            strace \
+            mtr-tiny \
+            traceroute \
+            zip \
+            unzip \
+            xz-utils \
+            bzip2 \
+            zstd \
+            tcpdump \
+            iperf3 \
+            ethtool \
+            age \
+            nmap \
+            iputils-tracepath \
+            whois \
     && \
     echo "**** Section cleanup ****" \
         && apt-get clean autoclean -y \

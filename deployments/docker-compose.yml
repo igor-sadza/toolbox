@@ -17,7 +17,7 @@ services:
   toolbox:
     hostname:       toolbox
     container_name: toolbox
-    image:          ${TOOLBOX_IMAGE:-ghcr.io/igor-sadza/toolbox}:${TOOLBOX_VERSION:-latest}
+    image:          ${TOOLBOX_IMAGE:-ghcr.io/igor-sadza/toolbox}:${TOOLBOX_VERSION:-stable}
     pull_policy:    always
     restart:        unless-stopped
     init:           true

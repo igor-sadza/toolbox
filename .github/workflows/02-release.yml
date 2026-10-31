@@ -1,0 +1,142 @@
+
+name: Release
+
+# ==========================
+# Triggers
+# ==========================
+
+on:
+  workflow_run:
+    workflows:
+      - Build
+    types:
+      - completed
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: toolbox-release
+  cancel-in-progress: false
+
+# ==========================
+# Jobs
+# ==========================
+
+jobs:
+  release:
+    name: Semantic Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'develop' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+
+    steps:
+      # --------------------------
+      # Checkout
+      # --------------------------
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      # --------------------------
+      # Verify build identity
+      # --------------------------
+
+      - name: Verify develop HEAD
+        id: guard
+        shell: bash
+        env:
+          BUILD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+
+          git fetch origin develop
+
+          if [[ "$BUILD_SHA" == "$(git rev-parse origin/develop)" ]]; then
+            echo "fresh=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "fresh=false" >> "$GITHUB_OUTPUT"
+            echo "Develop advanced; skipping stale release."
+          fi
+
+      # --------------------------
+      # Download build metadata
+      # --------------------------
+
+      - name: Download build metadata
+        if: steps.guard.outputs.fresh == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: build-metadata
+          path: release-metadata
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+
+      # --------------------------
+      # Validate build metadata
+      # --------------------------
+
+      - name: Validate build metadata
+        if: steps.guard.outputs.fresh == 'true'
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
+          EXPECTED_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+
+          FILE="release-metadata/build.json"
+
+          test -s "$FILE"
+
+          SHA="$(jq -r '.sha' "$FILE")"
+          DIGEST="$(jq -r '.digest' "$FILE")"
+          CANDIDATE="$(jq -r '.candidate' "$FILE")"
+          APT_UPGRADE="$(jq -r '.apt_upgrade' "$FILE")"
+
+          test "$SHA" = "$EXPECTED_SHA"
+          test "$APT_UPGRADE" = "false"
+          [[ "$DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]
+          [[ "$CANDIDATE" =~ ^build-${EXPECTED_RUN_ID}-[0-9]+$ ]]
+
+          echo "Verified build: $SHA"
+          echo "Digest: $DIGEST"
+
+      # --------------------------
+      # Setup Node.js
+      # --------------------------
+
+      - name: Setup Node.js
+        if: steps.guard.outputs.fresh == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # --------------------------
+      # Install release dependencies
+      # --------------------------
+
+      - name: Install release dependencies
+        if: steps.guard.outputs.fresh == 'true'
+        run: npm ci --no-audit --no-fund
+
+      # --------------------------
+      # Semantic release
+      # --------------------------
+
+      - name: Semantic release
+        if: steps.guard.outputs.fresh == 'true'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+        run: npx --no-install semantic-release
