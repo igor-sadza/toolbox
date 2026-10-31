@@ -8,13 +8,13 @@
 #
 # ----------------------------------------------------------
 #  Renovate cannot update lazy.nvim / Mason pins. This job
-#  runs ':Lazy! update' inside the published :edge image,
+#  runs ':Lazy! update' inside the published :stable image,
 #  bumps the Mason registry pin to its latest release and
 #  opens a PR. The PR triggers the build workflow (lint, scan, build).
 #
 ############################################################
 
-name: "nvim-lock"
+name: "Misc: Neovim Registry Update"
 
 # ============================
 # Dispatchers

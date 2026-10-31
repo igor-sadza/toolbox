@@ -1,10 +1,6 @@
 
 name: Release
 
-# ==========================
-# Triggers
-# ==========================
-
 on:
   workflow_run:
     workflows:
@@ -20,10 +16,6 @@ concurrency:
   group: toolbox-release
   cancel-in-progress: false
 
-# ==========================
-# Jobs
-# ==========================
-
 jobs:
   release:
     name: Semantic Release
@@ -37,20 +29,12 @@ jobs:
       github.event.workflow_run.head_repository.full_name == github.repository
 
     steps:
-      # --------------------------
-      # Checkout
-      # --------------------------
-
       - name: Checkout
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
           persist-credentials: false
-
-      # --------------------------
-      # Verify build identity
-      # --------------------------
 
       - name: Verify develop HEAD
         id: guard
@@ -69,10 +53,6 @@ jobs:
             echo "Develop advanced; skipping stale release."
           fi
 
-      # --------------------------
-      # Download build metadata
-      # --------------------------
-
       - name: Download build metadata
         if: steps.guard.outputs.fresh == 'true'
         uses: actions/download-artifact@v4
@@ -82,12 +62,9 @@ jobs:
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ github.token }}
 
-      # --------------------------
-      # Validate build metadata
-      # --------------------------
-
       - name: Validate build metadata
         if: steps.guard.outputs.fresh == 'true'
+        id: meta
         shell: bash
         env:
           EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
@@ -96,7 +73,6 @@ jobs:
           set -euo pipefail
 
           FILE="release-metadata/build.json"
-
           test -s "$FILE"
 
           SHA="$(jq -r '.sha' "$FILE")"
@@ -109,12 +85,8 @@ jobs:
           [[ "$DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]
           [[ "$CANDIDATE" =~ ^build-${EXPECTED_RUN_ID}-[0-9]+$ ]]
 
-          echo "Verified build: $SHA"
-          echo "Digest: $DIGEST"
-
-      # --------------------------
-      # Setup Node.js
-      # --------------------------
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+          echo "candidate=$CANDIDATE" >> "$GITHUB_OUTPUT"
 
       - name: Setup Node.js
         if: steps.guard.outputs.fresh == 'true'
@@ -122,21 +94,101 @@ jobs:
         with:
           node-version: 24
 
-      # --------------------------
-      # Install release dependencies
-      # --------------------------
-
       - name: Install release dependencies
         if: steps.guard.outputs.fresh == 'true'
         run: npm ci --no-audit --no-fund
 
-      # --------------------------
-      # Semantic release
-      # --------------------------
+      - name: Detect existing release tag
+        if: steps.guard.outputs.fresh == 'true'
+        id: before
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --tags --force
+          git tag --points-at HEAD --list 'v*' \
+            | sort -V > /tmp/tags-before.txt
 
       - name: Semantic release
         if: steps.guard.outputs.fresh == 'true'
-        shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
         run: npx --no-install semantic-release
+
+      - name: Detect new release tag
+        if: steps.guard.outputs.fresh == 'true'
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git fetch --tags --force
+
+          git tag --points-at HEAD --list 'v*' \
+            | sort -V > /tmp/tags-after.txt
+
+          TAG="$(comm -13 \
+            /tmp/tags-before.txt \
+            /tmp/tags-after.txt)"
+
+          if [[ -z "$TAG" ]]; then
+            echo "No new SemVer release."
+            echo "released=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          [[ "$TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+
+          echo "released=true" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Install crane
+        if: steps.version.outputs.released == 'true'
+        uses: imjasonh/setup-crane@v0.4
+
+      - name: Login to GHCR
+        if: steps.version.outputs.released == 'true'
+        shell: bash
+        env:
+          GHCR_USER: ${{ vars.GHCR_USERNAME || 'igor-sadza' }}
+          GHCR_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$GHCR_TOKEN" |
+            crane auth login ghcr.io \
+              -u "$GHCR_USER" \
+              --password-stdin
+
+      - name: Promote SemVer and stable
+        if: steps.version.outputs.released == 'true'
+        shell: bash
+        env:
+          DIGEST: ${{ steps.meta.outputs.digest }}
+          CANDIDATE: ${{ steps.meta.outputs.candidate }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          IMAGE="ghcr.io/igor-sadza/toolbox"
+          SOURCE="${IMAGE}@${DIGEST}"
+
+          CANDIDATE_DIGEST="$(crane digest "${IMAGE}:${CANDIDATE}")"
+          test "$CANDIDATE_DIGEST" = "$DIGEST"
+
+          if crane digest "${IMAGE}:${VERSION}" >/dev/null 2>&1; then
+            echo "Release image ${VERSION} already exists."
+            exit 1
+          fi
+
+          crane tag "$SOURCE" "$VERSION"
+
+          RELEASE_DIGEST="$(crane digest "${IMAGE}:${VERSION}")"
+          test "$RELEASE_DIGEST" = "$DIGEST"
+
+          crane tag "$SOURCE" stable
+
+          STABLE_DIGEST="$(crane digest "${IMAGE}:stable")"
+          test "$STABLE_DIGEST" = "$DIGEST"
+
+          echo "Published ${IMAGE}:${VERSION}"
+          echo "Updated ${IMAGE}:stable"
