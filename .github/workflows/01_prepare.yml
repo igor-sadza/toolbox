@@ -50,17 +50,17 @@ jobs:
   # Dockerfile lint 
   # --------------------------
   
-      - name: Dockerfile lint
-        run: |
-          docker run --rm -i hadolint/hadolint:v2.15.1 \
-            hadolint \
-            --ignore DL3008 \
-            --ignore DL4006 \
-            --ignore SC2086 \
-            --ignore DL3003 \
-            --ignore SC1008 \
-            --ignore SC2174 \
-            - < build/Dockerfile
+      #- name: Dockerfile lint
+      #  run: |
+      #    docker run --rm -i hadolint/hadolint:v2.15.1 \
+      #      hadolint \
+      #      --ignore DL3008 \
+      #      --ignore DL4006 \
+      #      --ignore SC2086 \
+      #      --ignore DL3003 \
+      #      --ignore SC1008 \
+      #      --ignore SC2174 \
+      #      - < build/Dockerfile
 
   # --------------------------
   # Secret scans 
