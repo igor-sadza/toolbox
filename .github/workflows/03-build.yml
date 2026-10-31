@@ -128,10 +128,18 @@ jobs:
           push: ${{ steps.meta.outputs.publish == 'true' }}
           tags: ghcr.io/igor-sadza/toolbox:${{ steps.meta.outputs.candidate }}
           build-args: ${{ steps.args.outputs.BUILD_ARGS }}
+      
+          # Weekly builds refresh Debian packages
           no-cache: ${{ github.event_name == 'schedule' }}
-          cache-from: type=gha
-          cache-to: ${{ github.event_name != 'schedule' && 'type=gha,mode=max' || '' }}
-
+      
+          # Reuse the shared develop cache
+          cache-from: |
+            type=gha,scope=toolbox-develop
+            type=gha,scope=toolbox-${{ github.ref_name }}
+      
+          # Store cache separately for each branch
+          cache-to: type=gha,scope=toolbox-${{ github.ref_name }},mode=max
+      
       # --------------------------
       # Record published digest
       # --------------------------

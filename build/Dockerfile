@@ -781,9 +781,10 @@ ENV \
 # -----------------------------------------------
 
 ENV \
-    OPENCODE_CONFIG=${TOOLBOX_CONFIG}/opencode/opencode.json \
-    OPENCODE_CONFIG_CONTENT=${TOOLBOX_CONFIG}/opencode \
     OPENCODE_DISABLE_EXTERNAL_SKILLS=1
+
+#    OPENCODE_CONFIG=${TOOLBOX_CONFIG}/opencode/opencode.json \
+#    OPENCODE_CONFIG_CONTENT=${TOOLBOX_CONFIG}/opencode \
 
 # -----------------------------------------------
 # Config: Tmux 
