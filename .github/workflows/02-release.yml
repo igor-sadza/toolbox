@@ -1,5 +1,4 @@
-
-name: Release
+name: "02 - Release"
 
 on:
   workflow_run:
