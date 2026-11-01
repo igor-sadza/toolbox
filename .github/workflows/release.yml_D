@@ -1,0 +1,73 @@
+name: "Prepare"
+
+# ==========================
+# Settings
+# ==========================
+
+on:
+  # Run on: Push to any 
+  push:
+    branches:
+      - '**'
+
+  # Run on: Pull Request 
+  pull_request:
+    branches:
+      - develop
+
+  # Run on: Manual trigger
+  workflow_dispatch:
+
+  # Run on: Mondays 04:00 UTC
+  schedule:
+    - cron: '0 4 * * 1'
+
+permissions:
+  contents: read
+
+# Cancel previous workflow:
+concurrency:
+  group: prepare
+  cancel-in-progress: true
+
+# ==========================
+# Jobs 
+# ==========================
+
+jobs:
+
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+  # --------------------------
+  # Dockerfile lint 
+  # --------------------------
+  
+      #- name: Dockerfile lint
+      #  run: |
+      #    docker run --rm -i hadolint/hadolint:v2.15.1 \
+      #      hadolint \
+      #      --ignore DL3008 \
+      #      --ignore DL4006 \
+      #      --ignore SC2086 \
+      #      --ignore DL3003 \
+      #      --ignore SC1008 \
+      #      --ignore SC2174 \
+      #      - < build/Dockerfile
+
+  # --------------------------
+  # Secret scans 
+  # --------------------------
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}

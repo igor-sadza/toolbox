@@ -1,0 +1,40 @@
+name: "Cleanups"
+
+# ==========================
+# Settings
+# ==========================
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Choose what to run
+        required: true
+        type: choice
+        options:
+          - cleanup-workflows
+
+# ==========================
+# Jobs 
+# ==========================
+
+jobs:
+
+  # --------------------------
+  # Cleanup Workflows
+  # --------------------------
+
+  cleanup-workflows:
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.action == 'cleanup-workflows' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: "Delete Workflows"
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          retain_days: 0
+          keep_minimum_runs: 0

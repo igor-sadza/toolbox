@@ -76,7 +76,7 @@ plugins:
   # Plugin to execute custom shell commands.
   - path: "@semantic-release/exec"
     successCmd: >
-      echo "version=${nextRelease.version}" >> "$GITHUB_OUTPUT"
+      echo "CANIDATE=${nextRelease.version}" >> "$GITHUB_OUTPUT"
 
 #-----------------------------------------------------------------------------
 
