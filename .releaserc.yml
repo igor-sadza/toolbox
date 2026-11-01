@@ -82,7 +82,7 @@ plugins:
 
   # Plugin to commit release assets to the project's git repository.
   - path: '@semantic-release/git'
-    #assets:
+    assets: []
     #- 'CHANGELOG.md'
     message: "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
 
