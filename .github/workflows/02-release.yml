@@ -50,6 +50,7 @@ jobs:
         run: |
           VERSION="${{ steps.release.outputs.version }}"
           echo "Released version: $VERSION"
+          echo "TEST"
 
       #- name: Detect new release tag
       #  id: version
