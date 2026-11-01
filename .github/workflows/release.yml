@@ -112,16 +112,12 @@ jobs:
         with:
           node-version: 24
 
-      - name: Install release dependencies
-        run: npm install --no-audit --no-fund
-
       - name: Semantic release
-        id: semantic
         env:
           GITHUB_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
         run: | 
+          npm install --no-audit --no-fund
           npx --no-install semantic-release
-          echo "version=${VERSION:=develop}" >> "${GITHUB_OUTPUT}"
 
 # =================
 # Build 
@@ -135,7 +131,7 @@ jobs:
     needs: release
 
     env:
-      VERSION: ${{ needs.release.outputs.version }}
+      VERSION: ${{ needs.release.outputs.version || 'develop' }}
 
     steps:
 
@@ -193,7 +189,7 @@ jobs:
           context: build
           file: build/Dockerfile
           push: true 
-          tags: ghcr.io/igor-sadza/toolbox:${TAG}
+          tags: ghcr.io/igor-sadza/toolbox:${{ env.VERSION }}
           build-args: ${{ steps.args.outputs.BUILD_ARGS }}
       
           # Weekly builds refresh Debian packages
