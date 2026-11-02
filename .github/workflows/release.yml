@@ -265,6 +265,7 @@ jobs:
           # No semantic release: stop here
           if [[ -n "${VERSION}" ]]; then
             crane tag "${IMAGE}@${DIGEST}" "${VERSION}" 
+            exit 0
           fi
 
           # Parse semantic version
@@ -279,8 +280,6 @@ jobs:
 
           # Versioned tags
           crane tag "${IMAGE}@${DIGEST}" "${VERSION}"
-          crane tag "${IMAGE}@${DIGEST}" "${major}.${minor}"
-          crane tag "${IMAGE}@${DIGEST}" "${major}"
 
           # Latest stable
           crane tag "${IMAGE}@${DIGEST}" latest
