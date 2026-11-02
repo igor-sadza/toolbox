@@ -271,7 +271,7 @@ jobs:
           IFS='.' read -r major minor patch <<< "${VERSION}"
 
           # Immutable version tag
-          existing="$(crane digest "${IMAGE}:${VERSION} 2>/dev/null || true)"
+          existing="$(crane digest "${IMAGE}:${VERSION}" 2>/dev/null || true)"
           if [[ -n "${existing}" && "${existing}" != "${DIGEST}" ]]; then
             echo "ERROR: Version ${VERSION} already exists with a different digest"
             exit 1          
