@@ -229,7 +229,7 @@ jobs:
     env:
       IMAGE: ghcr.io/igor-sadza/toolbox
       DIGEST: ${{ needs.build.outputs.digest }}
-      RELEASE_VERSION: ${{ needs.release.outputs.version }}
+      VERSION: ${{ needs.release.outputs.version }}
 
     steps:
 
