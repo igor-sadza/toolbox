@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+############################################################
+# Copyright (c) 2026 Igor Sadza
+# Released under the GPLv3 license
+# ----------------------------------------------------------
+#
+# FILE: build/rootfs/opt/toolbox/bin/opencode
+# DESC: OpenCode local execution (no Docker)
+#
+############################################################
+
+set -Eeuo pipefail
+
+config="${TOOLBOX_CONFIG:-/opt/toolbox/config}"
+cache="${TOOLBOX_CACHE:-/opt/toolbox/cache}"
+
+sandbox_data="${HOME}/.local/share/opencode-sandbox/.local/share"
+sandbox_state="${HOME}/.local/share/opencode-sandbox/.local/state"
+
+exec env \
+    XDG_CONFIG_HOME="${config}" \
+    XDG_DATA_HOME="${sandbox_data}" \
+    XDG_STATE_HOME="${sandbox_state}" \
+    XDG_CACHE_HOME="${cache}" \
+    OPENCODE_CONFIG_DIR="${config}/opencode" \
+    /usr/bin/opencode "$@"

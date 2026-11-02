@@ -22,6 +22,9 @@
           "limit": {
             "context": 32000,
             "output": 4096
+          },
+          "options": {
+            "maxTokens": 4096
           }
         }
       }
