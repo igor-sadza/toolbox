@@ -6,9 +6,11 @@ name: "Release"
 
 on:
   push:
-    branches:
-      - '**'
+    branches: [develop]
+
   schedule:
+
+    # Mondays 04:00 UTC
     - cron: '0 4 * * 1'
 
   workflow_dispatch:
@@ -20,9 +22,10 @@ on:
 permissions:
   contents: read
 
-#concurrency:
-#  group: release
-#  cancel-in-progress: false
+concurrency:
+  group: release
+  queue: max
+  cancel-in-progress: false
 
 # =================
 # Jobs 
@@ -42,30 +45,56 @@ jobs:
     steps:
 
       # --------------------------
-      # Repository Checkout 
+      # Preflight: Repository Checkout 
       # --------------------------
       
-      - name: Checkout
+      - name: "Preflight: Repository Checkout"
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           persist-credentials: false
 
       # --------------------------
-      # Secret scans 
+      # Preflight: Secret scans 
       # --------------------------
 
-      - name: Run Gitleaks
+      - name: "Preflight: Run Gitleaks"
         uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
 
+# =================
+# Build 
+# =================
+
+  build:
+    name: Build 
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    needs: preflight
+
+    outputs:
+      digest: ${{ steps.docker.outputs.digest }}
+
+    steps:
+
       # --------------------------
-      # Dockerfile lint 
+      # Build: Repository Checkout 
+      # --------------------------
+      
+      - name: "Build: Repository Checkout"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # --------------------------
+      # Build: Dockerfile lint 
       # --------------------------
   
-      #- name: Dockerfile lint
+      #- name: "Build: Dockerfile lint"
       #  run: |
       #    docker run --rm -i hadolint/hadolint:v2.15.1 \
       #      hadolint \
@@ -77,79 +106,11 @@ jobs:
       #      --ignore SC2174 \
       #      - < build/Dockerfile
 
-# =================
-# Release
-# =================
-
-  release:
-    name: Release
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-
-    needs: preflight
-
-    outputs:
-      version: ${{ steps.semantic.outputs.version }}
-
-    steps:
-
       # --------------------------
-      # Repository Checkout 
-      # --------------------------
-      
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      # -----------------
-      # Semantic Release
-      # -----------------
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-
-      - name: Semantic release
-        env:
-          GITHUB_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
-        run: | 
-          npm install --no-audit --no-fund
-          npx --no-install semantic-release
-
-# =================
-# Build 
-# =================
-
-  build:
-    name: Build  
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-
-    needs: release
-
-    env:
-      VERSION: ${{ needs.release.outputs.version || 'develop' }}
-
-    steps:
-
-      # --------------------------
-      # Repository Checkout 
+      # Build: Docker Build arguments
       # --------------------------
 
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      # --------------------------
-      # Build arguments
-      # --------------------------
-
-      - name: Build arguments
+      - name: "Build: Docker Build Arguments"
         id: args
         shell: bash
         run: |
@@ -161,17 +122,17 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       # --------------------------
-      # Setup BuildKit
+      # Build: Docker Setup BuildKit
       # --------------------------
 
-      - name: Setup BuildKit
+      - name: "Build: Docker Setup BuildKit"
         uses: docker/setup-buildx-action@v3
 
       # --------------------------
-      # Login to GHCR
+      # Build: Docker Login to GHCR
       # --------------------------
 
-      - name: Login to GHCR
+      - name: "Build: Docker Login to GHCR"
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -179,26 +140,218 @@ jobs:
           password: ${{ secrets.WORKFLOW_TOKEN }}
 
       # --------------------------
-      # Docker Build
+      # Build: Docker Build
       # --------------------------
 
-      - name: Docker Build
+      - name: "Build: Docker Build"
         id: docker
         uses: docker/build-push-action@v6
         with:
           context: build
           file: build/Dockerfile
-          push: true 
-          tags: ghcr.io/igor-sadza/toolbox:${{ env.VERSION }}
+          outputs: type=image,name=ghcr.io/igor-sadza/toolbox,push-by-digest=true,name-canonical=true,push=true
           build-args: ${{ steps.args.outputs.BUILD_ARGS }}
-      
-          # Weekly builds refresh Debian packages
+
+          # Weekly refresh
           no-cache: ${{ github.event_name == 'schedule' }}
+          pull: ${{ github.event_name == 'schedule' }}
       
-          # Reuse the shared develop cache
+          # Reuse develop and branch cache
           cache-from: |
             type=gha,scope=toolbox-develop
             type=gha,scope=toolbox-${{ github.ref_name }}
       
-          # Store cache separately for each branch
           cache-to: type=gha,scope=toolbox-${{ github.ref_name }},mode=max
+
+# =================
+# Release
+# =================
+
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    needs: build 
+
+    outputs:
+      version: ${{ steps.semantic-release.outputs.version }}
+
+    steps:
+
+      # --------------------------
+      # Release: Repository Checkout 
+      # --------------------------
+      
+      - name: "Release: Repository Checkout"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # -----------------
+      # Release: Setup Node.js 
+      # -----------------
+
+      - name: "Release: Setup Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # -----------------
+      # Release: Semantic Release 
+      # -----------------
+
+      - name: "Release: Semantic Release"
+        id: semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+        run: | 
+          npm install --no-audit --no-fund
+
+          # SemanticRelease sucess command:
+          # - echo "version=${nextRelease.version}" >> "$GITHUB_OUTPUT"
+          npx --no-install semantic-release
+
+# =================
+# Promote 
+# =================
+
+  promote:
+    name: Promote 
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    needs: [build, release]
+
+    if: ${{ needs.release.outputs.version != '' || github.ref_name == 'develop' || github.event_name == 'schedule' }}
+
+    env:
+      IMAGE: ghcr.io/igor-sadza/toolbox
+      DIGEST: ${{ needs.build.outputs.digest }}
+      RELEASE_VERSION: ${{ needs.release.outputs.version }}
+
+    steps:
+
+      # -----------------
+      # Promote: Setup Crane 
+      # -----------------
+
+      - name: "Promote: Setup Crane"
+        uses: imjasonh/setup-crane@v0.7
+
+      # -----------------
+      # Promote: Login to GHCR
+      # -----------------
+
+      - name: "Promote: Login to GHCR"
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ vars.GHCR_USERNAME }}
+          password: ${{ secrets.WORKFLOW_TOKEN }}
+
+      # -----------------
+      # Promote:  Re-Tag Image
+      # -----------------
+      
+      - name: "Promote: Re-Tag Image"
+        run: |
+          set -euo pipefail 
+
+          crane tag "${IMAGE}@${DIGEST}" develop 
+
+          if [[ -n "${VERSION}" ]]; then
+            crane tag "${IMAGE}@${DIGEST}" "${VERSION}" 
+          fi
+
+# =================
+# Misc
+# =================
+
+  misc:
+    name: Misc 
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    needs: [build, promote]
+
+    if: ${{ github.event_name == 'schedule' }}
+    #if: ${{ needs.release.outputs.version != '' || github.ref_name == 'develop' || github.ref_name == github.event.repository.default_branch }}
+
+    env:
+      IMAGE: ghcr.io/igor-sadza/toolbox
+      DIGEST: ${{ needs.build.outputs.digest }}
+      NVIM_DIR: build/rootfs/opt/toolbox/config/nvim
+      SHARED_GID: 29999     
+
+    steps:      
+
+      # --------------------------
+      # Misc: Repository Checkout 
+      # --------------------------
+      
+      - name: "Misc: Repository Checkout"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.WORKFLOW_TOKEN }}
+          persist-credentials: true
+
+      # --------------------------
+      # Misc: Login to GHCR
+      # --------------------------
+
+      - name: "Misc: Login to GHCR"
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ vars.GHCR_USERNAME }}
+          password: ${{ secrets.WORKFLOW_TOKEN }}
+
+      # --------------------------
+      # Misc: Nvim | Update Nvim Plugins 
+      # --------------------------
+
+      - name: "Misc: Nvim | Update Nvim Plugins"
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          chmod -R a+rwX "${NVIM_DIR}"
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --group-add "${SHARED_GID}" \
+            --entrypoint bash \
+            -v "${PWD}/${NVIM_DIR}:/opt/toolbox/config/nvim" \
+            "${IMAGE}@${DIGEST}" \
+            -c 'vi --headless "+Lazy! update" +qa'
+
+      # --------------------------
+      # Misc: Nvim | Bump Mason Registry
+      # --------------------------
+
+      - name: "Misc: Nvim | Bump Mason Registry"
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          latest="$(
+            curl -fsSI https://github.com/mason-org/mason-registry/releases/latest |
+            tr -d '\r' |
+            awk -F/ 'tolower($0) ~ /^location:/ { print $NF }'
+          )"
+          test -n "${latest}"
+          sed -i -E \
+            "s|(github:mason-org/mason-registry@)[^\"]+|\1${latest}|" \
+            "${NVIM_DIR}/lua/toolbox/plugins/lsp.lua"
+          echo "Mason registry: ${latest}"
+
+      # --------------------------
+      # Misc: Nvim | Commit changes 
+      # --------------------------
+
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v7
+        with:
+          commit_message: "chore(nvim): update nvim plugins"
+          file_pattern: ${{ env.NVIM_DIR }}/
+          disable_globbing: true
