@@ -263,8 +263,8 @@ jobs:
           crane tag "${IMAGE}@${DIGEST}" develop 
 
           # No semantic release: stop here
-          if [[ -n "${VERSION}" ]]; then
-            crane tag "${IMAGE}@${DIGEST}" "${VERSION}" 
+          if [[ -z "${VERSION}" ]]; then
+            echo "No new release. Updated develop only."
             exit 0
           fi
 
@@ -280,6 +280,8 @@ jobs:
 
           # Versioned tags
           crane tag "${IMAGE}@${DIGEST}" "${VERSION}"
+          #crane tag "${IMAGE}@${DIGEST}" "${major}.${minor}"
+          #crane tag "${IMAGE}@${DIGEST}" "${major}"
 
           # Latest stable
           crane tag "${IMAGE}@${DIGEST}" latest
