@@ -42,7 +42,7 @@
         "/^\\.env\\.example$/"
       ],
       "matchStrings": [
-        "DISTRIBUTION=(?<depName>\\S+)\\nSUITE=(?<currentValue>\\S+)\\nDIGEST=(?<currentDigest>sha256:[a-f0-9]+)"
+        "DISTRIBUTION=(?<depName>\\S+)\\nSUITE=(?<currentValue>\\S+)"
       ],
       "datasourceTemplate": "docker"
     },
@@ -132,6 +132,16 @@
         "patch"
       ],
       "automerge": true
+    },
+    {
+      "description": "Debian package version comparison",
+      "matchManagers": [
+        "custom.regex"
+      ],
+      "matchDatasources": [
+        "deb"
+      ],
+      "versioning": "deb"
     }
   ],
   "gitIgnoredAuthors": [
