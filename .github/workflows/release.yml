@@ -259,11 +259,31 @@ jobs:
         run: |
           set -euo pipefail 
 
+          # Always update development
           crane tag "${IMAGE}@${DIGEST}" develop 
 
+          # No semantic release: stop here
           if [[ -n "${VERSION}" ]]; then
             crane tag "${IMAGE}@${DIGEST}" "${VERSION}" 
           fi
+
+          # Parse semantic version
+          IFS='.' read -r major minor patch <<< "${VERSION}"
+
+          # Immutable version tag
+          existing="$(crane digest "${IMAGE}:${VERSION} 2>/dev/null || true)"
+          if [[ -n "${existing}" && "${existing}" != "${DIGEST}" ]]; then
+            echo "ERROR: Version ${VERSION} already exists with a different digest"
+            exit 1          
+          fi
+
+          # Versioned tags
+          crane tag "${IMAGE}@${DIGEST}" "${VERSION}"
+          crane tag "${IMAGE}@${DIGEST}" "${major}.${minor}"
+          crane tag "${IMAGE}@${DIGEST}" "${major}"
+
+          # Latest stable
+          crane tag "${IMAGE}@${DIGEST}" latest
 
 # =================
 # Misc
