@@ -1,0 +1,199 @@
+name: "build"
+
+# =============================================================
+# Triggers
+# ----------------------------------------------------------
+# pull_request       → lint + build only
+# push: develop      → lint + build + publish edge + release
+# schedule (weekly)  → build with Debian updates → weekly tags
+# workflow_dispatch: select ref (default current branch) -> build + publish manual tag if specified
+# =============================================================
+
+on:
+  pull_request:
+    branches: [develop]
+  push:
+    branches: [develop]
+    paths-ignore: ['**/*.md', 'docs/**', 'CHANGELOG.md']
+  schedule:
+    - cron: '0 4 * * 1'  # Mondays 04:00 UTC
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch, tag, or SHA to checkout"
+        required: false
+        default: ''
+      tag:
+        description: "Extra image tag"
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    name: Docker image
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v7
+      with:
+        token: ${{ github.event_name == 'push' && github.ref_name == 'develop' && secrets.WORKFLOW_TOKEN || github.token }}
+        fetch-depth: 0
+        ref: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.ref || github.ref) || github.event_name == 'push' && github.sha || github.ref }}
+
+    - name: Lint & scan
+      shell: bash
+      run: |
+        set -e
+
+        docker run --rm -i hadolint/hadolint:v2.15.1 hadolint \
+          --ignore DL3008 --ignore DL4006 --ignore SC2086 \
+          --ignore DL3003 --ignore SC1008 --ignore SC2174 \
+          - < build/Dockerfile
+
+        docker run --rm -v "${PWD}:/repo" \
+          ghcr.io/gitleaks/gitleaks:v8.30.1 git /repo \
+            --log-opts=HEAD --redact --verbose
+
+    - name: Setup BuildKit
+      uses: docker/setup-buildx-action@v4
+      with:
+        driver: ${{ env.ACT && 'docker' || 'docker-container' }}
+
+    - name: Build arguments
+      id: args
+      shell: bash
+      run: |
+        {
+          echo "BUILD_ARGS<<EOF"
+          .cicd/github/build-args.sh .env.example
+          echo "APT_UPGRADE=${{ github.event_name == 'schedule' }}"
+          echo "EOF"
+        } >> "${GITHUB_OUTPUT}"
+
+    - name: Docker Build
+      uses: docker/build-push-action@v7
+      with:
+        context: build
+        file: build/Dockerfile
+        load: true
+        tags: toolbox:ci
+        build-args: ${{ steps.args.outputs.BUILD_ARGS }}
+        cache-from: ${{ !env.ACT && 'type=gha' || '' }}
+        cache-to: ${{ !env.ACT && github.event_name != 'schedule' && 'type=gha,mode=max' || '' }}
+        no-cache: ${{ github.event_name == 'schedule' }}
+
+    - name: Develop freshness guard
+      if: github.event_name == 'push' && github.ref_name == 'develop'
+      id: develop_gate
+      shell: bash
+      run: |
+        set -e
+        git fetch origin develop
+        TRIGGERING_SHA="${GITHUB_SHA}"
+        TIP_SHA=$(git rev-parse -q --verify "origin/develop^{commit}")
+        if [ "$TRIGGERING_SHA" = "$TIP_SHA" ]; then
+          echo "Triggering commit ${TRIGGERING_SHA:0:7} matches origin/develop tip; eligible for publication"
+          echo "fresh=true" >> "${GITHUB_OUTPUT}"
+        else
+          echo "Triggering commit ${TRIGGERING_SHA:0:7} ≠ origin/develop tip ${TIP_SHA:0:7}. Develop advanced since trigger."
+          echo "Skipping publication and semantic-release."
+          echo "fresh=false" >> "${GITHUB_OUTPUT}"
+        fi
+
+    - name: Login to GHCR
+      if: >-
+        (github.event_name == 'push' && github.ref_name == 'develop' && steps.develop_gate.outputs.fresh == 'true') ||
+        github.event_name == 'schedule' ||
+        (github.event_name == 'workflow_dispatch' && github.event.inputs.tag != '')
+      uses: docker/login-action@v4
+      with:
+        registry: ghcr.io
+        username: ${{ vars.GHCR_USERNAME || 'igor-sadza' }}
+        password: ${{ secrets.WORKFLOW_TOKEN }}
+
+    - name: Publish edge
+      if: github.event_name == 'push' && github.ref_name == 'develop' && steps.develop_gate.outputs.fresh == 'true'
+      shell: bash
+      run: |
+        set -e
+        SHORT_SHA=$(echo "${GITHUB_SHA}" | cut -c1-7)
+        docker tag toolbox:ci ghcr.io/igor-sadza/toolbox:edge
+        docker push ghcr.io/igor-sadza/toolbox:edge
+        docker tag toolbox:ci ghcr.io/igor-sadza/toolbox:edge-${SHORT_SHA}
+        docker push ghcr.io/igor-sadza/toolbox:edge-${SHORT_SHA}
+
+    - name: Setup Node.js
+      if: github.event_name == 'push' && github.ref_name == 'develop' && steps.develop_gate.outputs.fresh == 'true'
+      uses: actions/setup-node@v4
+      with:
+        node-version: 24
+
+    - name: Install release dependencies
+      if: github.event_name == 'push' && github.ref_name == 'develop' && steps.develop_gate.outputs.fresh == 'true'
+      shell: bash
+      run: npm install --no-audit --no-fund
+
+    - name: Semantic release
+      if: github.event_name == 'push' && github.ref_name == 'develop' && steps.develop_gate.outputs.fresh == 'true'
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+      run: npx --no-install semantic-release
+
+    - name: Publish versioned release
+      if: github.event_name == 'push' && github.ref_name == 'develop' && steps.develop_gate.outputs.fresh == 'true'
+      shell: bash
+      run: |
+        set -e
+        TAG=$(git tag --points-at HEAD --list 'v[0-9]*')
+        if [[ -z "${TAG}" ]]; then
+          echo "No release tag at HEAD — skipping versioned publish"
+          exit 0
+        fi
+
+        VERSION=${TAG#v}
+        IFS=. read -r major minor _ <<< "${VERSION}"
+
+        for tag in "${VERSION}" "${major}.${minor}" "${major}" "latest"; do
+          docker tag toolbox:ci "ghcr.io/igor-sadza/toolbox:$tag"
+          docker push "ghcr.io/igor-sadza/toolbox:$tag"
+        done
+
+    - name: Publish weekly
+      if: github.event_name == 'schedule'
+      shell: bash
+      run: |
+        DATE=$(date -u +%Y%m%d)
+        docker tag toolbox:ci ghcr.io/igor-sadza/toolbox:weekly
+        docker push ghcr.io/igor-sadza/toolbox:weekly
+        docker tag toolbox:ci ghcr.io/igor-sadza/toolbox:weekly-${DATE}
+        docker push ghcr.io/igor-sadza/toolbox:weekly-${DATE}
+
+    - name: Publish manual tag
+      if: github.event_name == 'workflow_dispatch' && github.event.inputs.tag != ''
+      shell: bash
+      env:
+        TAG: ${{ github.event.inputs.tag }}
+      run: |
+        set -e
+        case "${TAG}" in
+          edge|edge-*|weekly|weekly-*|latest|[0-9]*)
+            echo "Rejecting reserved tag: ${TAG}"
+            exit 1
+            ;;
+        esac
+        if ! [[ "${TAG}" =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$ ]]; then
+          echo "Invalid Docker tag syntax: ${TAG}"
+          exit 1
+        fi
+        docker tag toolbox:ci ghcr.io/igor-sadza/toolbox:"${TAG}"
+        docker push ghcr.io/igor-sadza/toolbox:"${TAG}"
