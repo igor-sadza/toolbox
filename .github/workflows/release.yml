@@ -152,16 +152,13 @@ jobs:
           outputs: type=image,name=ghcr.io/igor-sadza/toolbox,push-by-digest=true,name-canonical=true,push=true
           build-args: ${{ steps.args.outputs.BUILD_ARGS }}
 
-          # Weekly refresh
+          # Monday: full rebuild
+          # Normal pushes: use cache
+          pull: true
           no-cache: ${{ github.event_name == 'schedule' }}
-          pull: ${{ github.event_name == 'schedule' }}
-      
-          # Reuse develop and branch cache
-          cache-from: |
-            type=gha,scope=toolbox-develop
-            type=gha,scope=toolbox-${{ github.ref_name }}
-      
-          cache-to: type=gha,scope=toolbox-${{ github.ref_name }},mode=max
+          
+          cache-from: type=gha,scope=toolbox
+          cache-to: type=gha,scope=toolbox,mode=max
 
 # =================
 # Release
