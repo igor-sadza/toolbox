@@ -22,7 +22,7 @@ RUNNER_IMAGE="${ACT_RUNNER_IMAGE:-catthehacker/ubuntu:act-latest}"
 
 act_args=(
   --platform "ubuntu-latest=${RUNNER_IMAGE}"
-  --workflows "${PWD}/.github/workflows/build.yml"
+  --workflows "${PWD}/.github/workflows/release.yml"
 )
 
 # Token is optional: pull_request mode never publishes.
