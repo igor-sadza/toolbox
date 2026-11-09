@@ -29,7 +29,7 @@ return {
     build = ":MasonUpdate",
     opts = {
       registries = {
-        "github:mason-org/mason-registry@2026-11-02-joyful-yogurt",
+        "github:mason-org/mason-registry@2026-11-09-lush-dimple",
       },
     },
   },
