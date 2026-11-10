@@ -56,7 +56,7 @@ return {
       },
       tab = {
         sync = {
-          open = true,
+          open = false,
           close = true,
         },
       },
