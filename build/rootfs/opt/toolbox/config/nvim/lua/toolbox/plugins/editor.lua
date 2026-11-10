@@ -54,6 +54,12 @@ return {
       filters = {
         dotfiles = false,
       },
+      tab = {
+        sync = {
+          open = true,
+          close = true,
+        },
+      },
     },
   },
 
