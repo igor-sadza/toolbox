@@ -853,7 +853,7 @@ ARG \
     RUST_TOOLCHAIN="" \
     CARGO_TREE_SITTER_CLI="" \
     NPM_NEOVIM="" \
-    NPM_OPENCODE_AI="" \
+    NPM_OPENCODE_CLI="" \
     NPM_CODEX="" \
     PIPX_UV=""
 
@@ -875,7 +875,7 @@ RUN \
              && : "${NPM_CODEX:?NPM_CODEX is required}" \
              && npm install \
                  --global \
-                 "opencode-ai@${NPM_OPENCODE_AI}" \
+                 "opencode/cli@${NPM_OPENCODE_CLI}" \
                  "neovim@${NPM_NEOVIM}" \
                  "@openai/codex@${NPM_CODEX}" \
              && npm cache clean --force; \
