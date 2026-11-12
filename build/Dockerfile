@@ -870,7 +870,7 @@ RUN \
     echo "**** Install extra Node packages ****" \
         && if [ "${INSTALL_NODE_JS}" = "true" ]; \
            then \
-             : "${NPM_OPENCODE_AI:?NPM_OPENCODE_AI is required}" \
+             : "${NPM_OPENCODE_CLI:?NPM_OPENCODE_CLI is required}" \
              && : "${NPM_NEOVIM:?NPM_NEOVIM is required}" \
              && : "${NPM_CODEX:?NPM_CODEX is required}" \
              && npm install \

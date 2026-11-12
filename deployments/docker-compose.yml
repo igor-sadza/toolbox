@@ -128,7 +128,7 @@ services:
         RUST_TOOLCHAIN:         ${RUST_TOOLCHAIN}
         CARGO_TREE_SITTER_CLI:  ${CARGO_TREE_SITTER_CLI}
         NPM_NEOVIM:             ${NPM_NEOVIM}
-        NPM_OPENCODE_AI:        ${NPM_OPENCODE_AI}
+        NPM_OPENCODE_CLI:       ${NPM_OPENCODE_CLI}
         NPM_CODEX:              ${NPM_CODEX}
         PIPX_UV:                ${PIPX_UV}
 
