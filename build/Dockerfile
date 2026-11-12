@@ -875,7 +875,7 @@ RUN \
              && : "${NPM_CODEX:?NPM_CODEX is required}" \
              && npm install \
                  --global \
-                 "opencode/cli@${NPM_OPENCODE_CLI}" \
+                 "@opencode/cli@${NPM_OPENCODE_CLI}" \
                  "neovim@${NPM_NEOVIM}" \
                  "@openai/codex@${NPM_CODEX}" \
              && npm cache clean --force; \
