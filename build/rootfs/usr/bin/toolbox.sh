@@ -91,13 +91,24 @@ fi
 # Supplementary groups
 # ===================================
 
-# Host groups + toolbox-shared (shared caches/tools) + sudo.
+# Host groups + toolbox-shared + sudo + configured extra groups.
+
 SUDO_GID="$(getent group sudo | awk -F: 'NR == 1 { print $3 }')"
 test -n "${SUDO_GID}"
+
+TOOLBOX_EXTRA_GROUPS="${TOOLBOX_EXTRA_GROUPS:-}"
+
+# Validate configured supplementary GIDs.
+if [[ -n "${TOOLBOX_EXTRA_GROUPS}" ]] &&
+   [[ ! "${TOOLBOX_EXTRA_GROUPS}" =~ ^[0-9]+(,[0-9]+)*$ ]]; then
+    echo "Invalid TOOLBOX_EXTRA_GROUPS" >&2
+    exit 1
+fi
 
 session_groups="$(
     printf '%s\n' \
         "${TOOLBOX_GROUPS//,/$'\n'}" \
+        "${TOOLBOX_EXTRA_GROUPS//,/$'\n'}" \
         "${TOOLBOX_SHARED_GID}" \
         "${SUDO_GID}" |
     awk \

@@ -42,11 +42,7 @@ run_init_scripts() {
 }
 
 run_init_scripts \
-    '/etc/cont-init.d/core' \
-    '*.sh'
-
-run_init_scripts \
-    '/etc/cont-init.d/optional' \
+    '/etc/bash.bashrc.d/core' \
     '*.sh'
 
 # ===================================

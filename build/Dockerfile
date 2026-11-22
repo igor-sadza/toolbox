@@ -878,6 +878,7 @@ RUN \
                  "@opencode/cli@${NPM_OPENCODE_CLI}" \
                  "neovim@${NPM_NEOVIM}" \
                  "@openai/codex@${NPM_CODEX}" \
+                 "mcp-searxng@${NPM_MCP_SEARXNG}" \
              && npm cache clean --force; \
            fi \
     && \
@@ -1041,6 +1042,26 @@ RUN \
         -xdev \
         -type f \
         -exec chmod g+x {} +
+
+# -----------------------------------------------
+# Postflight: Additional runtime groups
+# -----------------------------------------------
+
+ARG \
+    TOOLBOX_EXTRA_GROUPS=""
+
+ENV \
+    TOOLBOX_EXTRA_GROUPS="${TOOLBOX_EXTRA_GROUPS}"
+
+RUN \
+    echo "**** Postflight: Additional runtime groups ****" \
+    && \
+      set -eux; \
+      for gid in $(echo "${TOOLBOX_EXTRA_GROUPS}" | tr ',' ' '); do \
+          if ! getent group "${gid}" >/dev/null; then \
+              groupadd --gid "${gid}" "toolbox-extra-${gid}"; \
+          fi; \
+      done
 
 # =============================================================================
 # : Execute

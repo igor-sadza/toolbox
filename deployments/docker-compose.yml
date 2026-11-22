@@ -40,6 +40,13 @@ services:
       # Declare them in the top-level 'volumes:' section below.
       # - nfs-data:/mnt/nfs/data
 
+      # OpenCode
+      - ../../opencode:/opt/toolbox/config/opencode
+
+      # OpenCode Ledger
+      - /var/lib/stackworks/opencode/ipc:/run/opencode-ledger:ro
+      - /var/lib/stackworks/opencode/capabilities:/etc/opencode-capabilities:ro
+
     # =============================================================================
     # : Network 
     # =============================================================================
@@ -48,6 +55,11 @@ services:
     # Extra Hosts 
     extra_hosts:
       - "toolbox:127.0.1.1"
+
+    # OpenCode Ledger
+    group_add:
+      - "21003"
+      - "21004"
 
     # =============================================================================
     # : Extra Settings 
@@ -77,6 +89,7 @@ services:
         DISTRIBUTION:           ${DISTRIBUTION}
         SUITE:                  ${SUITE}
         DIGEST:                 ${DIGEST}
+        EXTRA_GROUPS:           ${EXTRA_GROUPS} 
 
         # -- Neovim
         INSTALL_NEOVIM:         ${INSTALL_NEOVIM}
@@ -130,6 +143,7 @@ services:
         NPM_NEOVIM:             ${NPM_NEOVIM}
         NPM_OPENCODE_CLI:       ${NPM_OPENCODE_CLI}
         NPM_CODEX:              ${NPM_CODEX}
+        NPM_MCP_SEARXNG:        ${NPM_MCP_SEARXNG}
         PIPX_UV:                ${PIPX_UV}
 
         # -- Tmux (plugins)
@@ -139,6 +153,9 @@ services:
     # : Environments 
     # =============================================================================
     environment:
+        # -- Base
+        EXTRA_GROUPS:           ${EXTRA_GROUPS} 
+
         # -- Liquidprompt
         LIQUIDPROMPT_THEME:     ${LIQUIDPROMPT_THEME}
 
